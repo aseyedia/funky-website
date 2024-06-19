@@ -1,54 +1,27 @@
 import * as THREE from 'three';
-import { AsciiEffect } from 'three/addons/effects/AsciiEffect.js';
-import { TrackballControls } from 'three/addons/controls/TrackballControls.js';
-// import './main.css';
 
-let camera, controls, scene, renderer, effect;
-
-let sphere, plane;
-
-const start = Date.now();
+let camera, scene, renderer, cube;
 
 init();
+animate();
 
 function init() {
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 1, 1000);
-    camera.position.y = 150;
-    camera.position.z = 500;
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
+    camera.position.z = 1;
 
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0, 0, 0);
 
-    const pointLight1 = new THREE.PointLight(0xffffff, 3, 0, 0);
-    pointLight1.position.set(500, 500, 500);
-    scene.add(pointLight1);
+    const geometry = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+    const material = new THREE.MeshNormalMaterial();
 
-    const pointLight2 = new THREE.PointLight(0xffffff, 1, 0, 0);
-    pointLight2.position.set(-500, -500, -500);
-    scene.add(pointLight2);
+    cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
 
-    sphere = new THREE.Mesh(new THREE.SphereGeometry(200, 20, 10), new THREE.MeshPhongMaterial({ flatShading: true }));
-    scene.add(sphere);
-
-    plane = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshBasicMaterial({ color: 0xe0e0e0 }));
-    plane.position.y = -200;
-    plane.rotation.x = -Math.PI / 2;
-    scene.add(plane);
-
-    renderer = new THREE.WebGLRenderer();
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setAnimationLoop(animate);
+    document.body.appendChild(renderer.domElement);
 
-    effect = new AsciiEffect(renderer, ' .:-+*=%@#', { invert: true });
-    effect.setSize(window.innerWidth, window.innerHeight);
-    effect.domElement.style.color = 'white';
-    effect.domElement.style.backgroundColor = 'black';
-
-    document.body.appendChild(effect.domElement);
-
-    controls = new TrackballControls(camera, effect.domElement);
-
-    window.addEventListener('resize', onWindowResize);
+    window.addEventListener('resize', onWindowResize, false);
 }
 
 function onWindowResize() {
@@ -56,17 +29,13 @@ function onWindowResize() {
     camera.updateProjectionMatrix();
 
     renderer.setSize(window.innerWidth, window.innerHeight);
-    effect.setSize(window.innerWidth, window.innerHeight);
 }
 
-function animate(time) {
-    const timer = Date.now() - start;
+function animate() {
+    requestAnimationFrame(animate);
 
-    sphere.position.y = Math.abs(Math.sin(timer * 0.002)) * 150;
-    sphere.rotation.x = timer * 0.0003;
-    sphere.rotation.z = timer * 0.0002;
+    cube.rotation.x += 0.01;
+    cube.rotation.y += 0.01;
 
-    controls.update();
-
-    effect.render(scene, camera);
+    renderer.render(scene, camera);
 }
