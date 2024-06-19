@@ -69,7 +69,11 @@ function init() {
             if (textGeometry.boundingBox && isFinite(textGeometry.boundingBox.max.x) && isFinite(textGeometry.boundingBox.min.x)) {
                 const charWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
 
-                const textMaterial = new THREE.MeshNormalMaterial({ color: 0xffffff });
+                // Center the geometry
+                const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+                textGeometry.translate(centerOffset, 0, 0);
+
+                const textMaterial = new THREE.MeshNormalMaterial(); // Change to MeshNormalMaterial
 
                 const textMesh = new THREE.Mesh(textGeometry, textMaterial);
                 textMesh.position.x = offsetX;
