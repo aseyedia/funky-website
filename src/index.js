@@ -1,6 +1,19 @@
 import * as THREE from 'three';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import * as dat from 'dat.gui';
+
+
+const gui = new dat.GUI();
+const controls = {
+	text: 'Your text here',
+	speed: 0.01,
+	direction: 1
+};
+
+gui.add(controls, 'text').onChange(generateText);
+gui.add(controls, 'speed', 0, 0.1); // min: 0, max: 0.1
+gui.add(controls, 'direction', -1, 1); // min: -1, max: 1
 
 let camera, scene, renderer;
 const textMeshes = [];
@@ -8,38 +21,14 @@ const textMeshes = [];
 init();
 animate();
 
-function init() {
-	// Camera setup
-	camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
-	camera.position.z = 1;
+function generateText(value) {
+	// Remove old text meshes
+	textMeshes.forEach(mesh => scene.remove(mesh));
+	textMeshes.length = 0;
 
-	// Scene setup
-	scene = new THREE.Scene();
-
-	// Renderer setup
-	renderer = new THREE.WebGLRenderer({ antialias: true });
-	renderer.setSize(window.innerWidth, window.innerHeight);
-	renderer.shadowMap.enabled = true; // Enable shadows
-	document.body.appendChild(renderer.domElement);
-
-	// Ambient Light
-	const ambLight = new THREE.AmbientLight(0xffffff, 1); // Increased intensity for better visibility
-	scene.add(ambLight);
-
-	// Point Light with shadows
-	const pointLight = new THREE.PointLight(0xffffff, 1);
-	pointLight.position.set(2, 2, 2);
-	pointLight.castShadow = true; // Enable shadows for the light
-	scene.add(pointLight);
-
-	// Ground Plane
-	const groundGeometry = new THREE.PlaneGeometry(500, 500);
-	const groundMaterial = new THREE.MeshNormalMaterial({ color: 0x4e8f38 });
-	const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-	ground.rotation.x = -Math.PI / 2; // Rotate ground to be horizontal
-	ground.receiveShadow = true; // Enable shadows for the ground
-	scene.add(ground);
-
+	// Generate new text meshes
+	const letters = value.split('');
+	let offsetX = 0;
 	// Load the font and create text geometries
 	const loader = new FontLoader();
 	loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', function (font) {
@@ -93,6 +82,41 @@ function init() {
 		// Log to check if text meshes are created
 		console.log("Text meshes created: ", textMeshes.length);
 	});
+}
+
+function init() {
+	// Camera setup
+	camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
+	camera.position.z = 1;
+
+	// Scene setup
+	scene = new THREE.Scene();
+
+	// Renderer setup
+	renderer = new THREE.WebGLRenderer({ antialias: true });
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	renderer.shadowMap.enabled = true; // Enable shadows
+	document.body.appendChild(renderer.domElement);
+
+	// Ambient Light
+	const ambLight = new THREE.AmbientLight(0xffffff, 1); // Increased intensity for better visibility
+	scene.add(ambLight);
+
+	// Point Light with shadows
+	const pointLight = new THREE.PointLight(0xffffff, 1);
+	pointLight.position.set(2, 2, 2);
+	pointLight.castShadow = true; // Enable shadows for the light
+	scene.add(pointLight);
+
+	// Ground Plane
+	const groundGeometry = new THREE.PlaneGeometry(500, 500);
+	const groundMaterial = new THREE.MeshNormalMaterial({ color: 0x4e8f38 });
+	const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+	ground.rotation.x = -Math.PI / 2; // Rotate ground to be horizontal
+	ground.receiveShadow = true; // Enable shadows for the ground
+	scene.add(ground);
+
+
 
 	window.addEventListener('resize', onWindowResize, false);
 
@@ -107,12 +131,12 @@ function onWindowResize() {
 }
 
 function animate() {
-    requestAnimationFrame(animate);
+	requestAnimationFrame(animate);
 
-    // Rotate each letter around its own vertical axis
-    textMeshes.forEach(mesh => {
-        mesh.rotation.y += 0.005; // Slow down rotation speed
-    });
+	// Use controls.speed and controls.direction
+	textMeshes.forEach(mesh => {
+		mesh.rotation.y += controls.speed * controls.direction;
+	});
 
-    renderer.render(scene, camera);
+	renderer.render(scene, camera);
 }
