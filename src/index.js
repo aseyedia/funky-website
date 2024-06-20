@@ -11,7 +11,7 @@ animate();
 function init() {
     // Camera setup
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
-    camera.position.z = 1;
+    camera.position.set(0, 0.5, 2);
 
     // Scene setup
     scene = new THREE.Scene();
@@ -23,14 +23,22 @@ function init() {
     document.body.appendChild(renderer.domElement);
 
     // Ambient Light
-    const ambLight = new THREE.AmbientLight(0xffffff, 1); // Increased intensity for better visibility
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.5); // Reduced intensity for better contrast
     scene.add(ambLight);
 
-    // Point Light with shadows
-    const pointLight = new THREE.PointLight(0xffffff, 1);
-    pointLight.position.set(2, 2, 2);
-    pointLight.castShadow = true; // Enable shadows for the light
-    scene.add(pointLight);
+    // Spotlight with shadows
+    const spotLight = new THREE.SpotLight(0xffffff, 1);
+    spotLight.position.set(2, 2, 2);
+    spotLight.castShadow = true; // Enable shadows for the light
+    spotLight.angle = Math.PI / 6;
+    spotLight.penumbra = 0.1;
+    spotLight.decay = 2;
+    spotLight.distance = 50;
+    spotLight.shadow.mapSize.width = 1024;
+    spotLight.shadow.mapSize.height = 1024;
+    spotLight.shadow.camera.near = 0.5;
+    spotLight.shadow.camera.far = 50;
+    scene.add(spotLight);
 
     // Ground Plane
     const groundGeometry = new THREE.PlaneGeometry(500, 500);
@@ -73,17 +81,18 @@ function init() {
                 const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
                 textGeometry.translate(centerOffset, 0, 0);
 
-                const textMaterial = new THREE.MeshNormalMaterial(); // Change to MeshNormalMaterial
+                const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff }); // Changed to MeshStandardMaterial for better lighting
 
                 const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-                textMesh.position.x = offsetX;
+                textMesh.position.set(offsetX, 0, 0);
                 textMesh.castShadow = true; // Enable shadows for the text mesh
+                textMesh.receiveShadow = true; // Enable shadows for the text mesh
                 textMeshes.push(textMesh);
                 scene.add(textMesh);
 
                 console.log(`Letter ${letter}: position x = ${textMesh.position.x}`); // Log each letter's position
 
-                offsetX += charWidth;
+                offsetX += charWidth + 0.01; // Add a little space between letters
             } else {
                 console.error(`Invalid BoundingBox for letter: ${letter}`);
             }
@@ -113,11 +122,6 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
-
-    // Rotate each letter around its own vertical axis
-    textMeshes.forEach(mesh => {
-        mesh.rotation.y += 0.01; // Adjust rotation speed as needed
-    });
 
     renderer.render(scene, camera);
 }
