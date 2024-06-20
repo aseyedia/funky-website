@@ -27,6 +27,7 @@ function init() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true; // An animation loop is required when either damping or auto-rotation are enabled
     controls.dampingFactor = 0.1;
+    controls.maxPolarAngle = Math.PI / 2; // Prevent the camera from moving below the ground level
 
     // Ambient Light
     const ambLight = new THREE.AmbientLight(0xffffff, 0.5); // Reduced intensity for better contrast
@@ -72,6 +73,7 @@ function init() {
 
         const letters = Array.from(message);
         let offsetX = 0;
+        const letterSpacing = 0.02; // Adjust letter spacing
 
         letters.forEach((letter, index) => {
             const textGeometry = new TextGeometry(letter, fontOptions);
@@ -82,10 +84,8 @@ function init() {
             // Ensure bounding box values are valid
             if (textGeometry.boundingBox && isFinite(textGeometry.boundingBox.max.x) && isFinite(textGeometry.boundingBox.min.x)) {
                 const charWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-                
-                // Center the geometry
-                const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-                textGeometry.translate(centerOffset, 0, 0);
+                const centerOffsetY = -textGeometry.boundingBox.min.y; // Move the geometry up to sit on the ground
+                textGeometry.translate(0, centerOffsetY, 0);
 
                 const textMaterial = new THREE.MeshNormalMaterial(); // Change to MeshNormalMaterial
 
@@ -97,14 +97,14 @@ function init() {
 
                 console.log(`Letter ${letter}: position x = ${textMesh.position.x}`); // Log each letter's position
 
-                offsetX += charWidth + 0.05; // Add some spacing between letters
+                offsetX += charWidth + letterSpacing; // Add letter spacing
             } else {
                 console.error(`Invalid BoundingBox for letter: ${letter}`);
             }
         });
 
         // Center the entire text
-        const totalWidth = offsetX;
+        const totalWidth = offsetX - letterSpacing; // Adjust total width calculation
         textMeshes.forEach(mesh => {
             mesh.position.x -= totalWidth / 2;
         });
@@ -127,6 +127,11 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
+
+    // Prevent the camera from going below the ground
+    if (camera.position.y < 0.1) {
+        camera.position.y = 0.1;
+    }
 
     // Update controls
     controls.update();
