@@ -1,8 +1,9 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 
-let camera, scene, renderer;
+let camera, scene, renderer, controls;
 const textMeshes = [];
 
 init();
@@ -11,7 +12,7 @@ animate();
 function init() {
     // Camera setup
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
-    camera.position.set(0, 0.5, 2);
+    camera.position.set(0, 1, 2);
 
     // Scene setup
     scene = new THREE.Scene();
@@ -21,6 +22,11 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true; // Enable shadows
     document.body.appendChild(renderer.domElement);
+
+    // Orbit Controls
+    controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true; // An animation loop is required when either damping or auto-rotation are enabled
+    controls.dampingFactor = 0.1;
 
     // Ambient Light
     const ambLight = new THREE.AmbientLight(0xffffff, 0.5); // Reduced intensity for better contrast
@@ -76,23 +82,22 @@ function init() {
             // Ensure bounding box values are valid
             if (textGeometry.boundingBox && isFinite(textGeometry.boundingBox.max.x) && isFinite(textGeometry.boundingBox.min.x)) {
                 const charWidth = textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x;
-
+                
                 // Center the geometry
                 const centerOffset = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
                 textGeometry.translate(centerOffset, 0, 0);
 
-                const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff }); // Changed to MeshStandardMaterial for better lighting
+                const textMaterial = new THREE.MeshNormalMaterial(); // Change to MeshNormalMaterial
 
                 const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-                textMesh.position.set(offsetX, 0, 0);
+                textMesh.position.x = offsetX;
                 textMesh.castShadow = true; // Enable shadows for the text mesh
-                textMesh.receiveShadow = true; // Enable shadows for the text mesh
                 textMeshes.push(textMesh);
                 scene.add(textMesh);
 
                 console.log(`Letter ${letter}: position x = ${textMesh.position.x}`); // Log each letter's position
 
-                offsetX += charWidth + 0.01; // Add a little space between letters
+                offsetX += charWidth + 0.05; // Add some spacing between letters
             } else {
                 console.error(`Invalid BoundingBox for letter: ${letter}`);
             }
@@ -122,6 +127,9 @@ function onWindowResize() {
 
 function animate() {
     requestAnimationFrame(animate);
+
+    // Update controls
+    controls.update();
 
     renderer.render(scene, camera);
 }
