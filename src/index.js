@@ -12,7 +12,7 @@ animate();
 function init() {
     // Camera setup
     camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 10);
-    camera.position.set(0, 1, 2);
+    camera.position.set(0, 0.3, 0.6); // Set initial camera position
 
     // Scene setup
     scene = new THREE.Scene();
@@ -136,5 +136,13 @@ function animate() {
     // Update controls
     controls.update();
 
+    console.log(camera.position); // Log camera position
+
     renderer.render(scene, camera);
 }
+
+// {
+//     "x": 0,
+//     "y": 0.30281875332771097,
+//     "z": 0.6056375066554217
+// }
