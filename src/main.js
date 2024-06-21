@@ -23,10 +23,15 @@ const textClearcoat = 1.0;
 const textClearcoatRoughness = 0.1;
 const textRefractionRatio = 0.98;
 const textIOR = 1.5;
-const offsetY = 10;
 
-let camera, scene, renderer, controls, water;
+let camera, scene, renderer, controls, water, sky, sun;
 const textMeshes = [];
+
+// Parameters object to manage sun position
+const params = {
+    elevation: 2,
+    azimuth: 180
+};
 
 // Initialize the scene
 init();
@@ -71,7 +76,7 @@ function setupControls() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
-    controls.maxPolarAngle = Math.PI;
+    controls.maxPolarAngle = Math.PI / 2; // Limit the vertical rotation of the camera
 }
 
 // Set up the lights in the scene
@@ -135,7 +140,7 @@ function createText(message, callback) {
         });
 
         const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textMesh.position.set(centerOffsetX, offsetY, 0);
+        textMesh.position.set(centerOffsetX, 10, 0); // Set Y offset to +10
         textMesh.castShadow = true;
         scene.add(textMesh);
         textMeshes.push(textMesh);
@@ -169,13 +174,12 @@ function createOcean() {
 
 // Initialize sky object and set as environment map
 function initSky(callback) {
-    const sky = new Sky();
+    sky = new Sky();
     sky.scale.setScalar(skyScale);
-    const phi = THREE.MathUtils.degToRad(270);
-    const theta = THREE.MathUtils.degToRad(180);
-    const sunPosition = new THREE.Vector3().setFromSphericalCoords(1, phi, theta);
+    sun = new THREE.Vector3();
 
-    sky.material.uniforms.sunPosition.value.copy(sunPosition);
+    updateSunPosition();
+
     scene.add(sky);
 
     // Update scene environment and background with sky
@@ -188,6 +192,18 @@ function initSky(callback) {
     console.log("Sky initialized and set as environment");
 
     if (callback) callback();
+}
+
+// Update the sun position
+function updateSunPosition() {
+    const phi = THREE.MathUtils.degToRad(90 - params.elevation);
+    const theta = THREE.MathUtils.degToRad(params.azimuth);
+
+    sun.setFromSphericalCoords(1, phi, theta);
+    if (sky.material.uniforms) {
+        sky.material.uniforms.sunPosition.value.copy(sun);
+    }
+    console.log(`Sun position updated: Azimuth=${params.azimuth}, Elevation=${params.elevation}`);
 }
 
 // Handle window resize events
@@ -205,12 +221,12 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// GUI for controlling materials
+// GUI for controlling materials and sun position
 function initGUI() {
     const gui = new GUI();
 
+    // Text Material Controls
     const textMaterial = textMeshes[0]?.material;
-
     if (textMaterial) {
         const textFolder = gui.addFolder('Text Material');
         textFolder.addColor({ color: textColor }, 'color').onChange(value => textMaterial.color.set(value));
@@ -225,4 +241,10 @@ function initGUI() {
     } else {
         console.error('Text material not found for GUI initialization.');
     }
+
+    // Sun Controls
+    const sunFolder = gui.addFolder('Sun');
+    sunFolder.add(params, 'elevation', 0, 90).onChange(updateSunPosition);
+    sunFolder.add(params, 'azimuth', -180, 180).onChange(updateSunPosition);
+    sunFolder.open();
 }
