@@ -23,6 +23,7 @@ const textClearcoat = 1.0;
 const textClearcoatRoughness = 0.1;
 const textRefractionRatio = 0.98;
 const textIOR = 1.5;
+const offsetY = 10;
 
 let camera, scene, renderer, controls, water;
 const textMeshes = [];
@@ -134,7 +135,7 @@ function createText(message, callback) {
         });
 
         const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textMesh.position.set(centerOffsetX, 0, 0);
+        textMesh.position.set(centerOffsetX, offsetY, 0);
         textMesh.castShadow = true;
         scene.add(textMesh);
         textMeshes.push(textMesh);
