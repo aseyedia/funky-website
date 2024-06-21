@@ -6,9 +6,9 @@ import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-let camera, scene, renderer, controls, pmremGenerator, water;
+let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 const textMeshes = [];
-let hdrPath = './assets/hdr/ocean_hdri/001/001.hdr';
+let hdrPath = '';
 
 const params = {
     roughness: 0.1,
@@ -27,10 +27,9 @@ function init() {
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     setupLights();
-    loadHDRI(() => {
-        setupObjects(() => {
-            initGUI();
-        });
+    loadInitialHDRI();
+    setupObjects(() => {
+        initGUI();
     });
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
@@ -63,10 +62,10 @@ function setupControls() {
 }
 
 function setupLights() {
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.5);
+    const ambLight = new THREE.AmbientLight(0xffffff, 1.5); // Increased intensity
     scene.add(ambLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5); // Increased intensity
     dirLight.position.set(5, 10, 7.5);
     dirLight.castShadow = true;
     scene.add(dirLight);
@@ -135,7 +134,17 @@ function createOcean() {
     scene.add(water);
 }
 
+function loadInitialHDRI() {
+    hdrPath = './assets/hdr/ocean_hdri/001/001.hdr';
+    loadHDRI(() => {
+        const depthDir = './assets/hdr/ocean_hdri/001';
+        loadDepthMapFromDir(depthDir);
+    });
+}
+
 function loadHDRI(callback) {
+    if (!hdrPath) return;
+
     console.log("Loading HDRI from path:", hdrPath);
     new RGBELoader()
         .setDataType(THREE.HalfFloatType) // Use HalfFloatType
@@ -148,11 +157,44 @@ function loadHDRI(callback) {
             texture.dispose();
             pmremGenerator.dispose();
             console.log("HDRI environment applied");
+
             if (callback) callback();
         }, undefined, (error) => {
             console.error("Error loading HDRI:", error);
         });
 }
+
+function loadDepthMap(path, callback) {
+    if (!path) return;
+
+    new THREE.TextureLoader().load(path, (texture) => {
+        depthMap = texture;
+        depthMap.minFilter = THREE.LinearFilter;
+        depthMap.magFilter = THREE.LinearFilter;
+        depthMap.format = THREE.RGBAFormat; // Adjusted format to RGBAFormat
+        console.log("Depth map loaded");
+        if (callback) callback();
+    }, undefined, (error) => {
+        console.error("Error loading depth map:", error);
+    });
+}
+
+function loadDepthMapFromDir(depthDir) {
+    const depthFile = 'depth.jpg';
+    const filePath = `${depthDir}/${depthFile}`;
+    console.log("Checking:", filePath);
+    const req = new XMLHttpRequest();
+    req.open('HEAD', filePath, false);
+    req.send();
+
+    if (req.status !== 404) {
+        console.log("Depth map path:", filePath);
+        loadDepthMap(filePath);
+    } else {
+        console.log("No depth map found for directory:", depthDir);
+    }
+}
+
 
 function updateTextEnvMap(envMap) {
     textMeshes.forEach(mesh => {
@@ -201,11 +243,15 @@ function initGUI() {
         '007/007.hdr': '007/007.hdr',
         '008/008.hdr': '008/008.hdr'
     };
-    
+
     hdrOptions['royal_esplanade_1k.hdr'] = 'royal_esplanade_1k.hdr';
     hdrFolder.add({ hdr: hdrOptions['001/001.hdr'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
         hdrPath = value === 'royal_esplanade_1k.hdr' ? `./assets/hdr/${value}` : `./assets/hdr/ocean_hdri/${value}`;
-        loadHDRI();
+        loadHDRI(() => {
+            const depthDir = `./assets/hdr/ocean_hdri/${value.split('/')[0]}`;
+            console.log("Depth directory:", depthDir);
+            loadDepthMapFromDir(depthDir);
+        });
     });
     hdrFolder.open();
 }
