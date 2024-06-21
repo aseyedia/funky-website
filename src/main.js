@@ -26,7 +26,7 @@ function init() {
     setupScene();
     setupRenderer();
     setupControls();
-    setupLights();
+    // setupLights();
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     checkHDRFileAccess();
@@ -175,7 +175,7 @@ function loadHDRI() {
         .then(buffer => {
             console.log("HDRI file loaded, buffer length:", buffer.byteLength);
             new RGBELoader()
-                .setDataType(THREE.HalfFloatType)
+                .setDataType(THREE.FloatType)
                 .parse(buffer, function (texture) {
                     console.log("HDRI parsed successfully", texture);
                     const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
