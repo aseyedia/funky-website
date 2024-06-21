@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
@@ -21,16 +22,17 @@ const textRoughness = 0.4;
 const textEnvMapIntensity = 1.0;
 const textClearcoat = 1.0;
 const textClearcoatRoughness = 0.1;
-const textRefractionRatio = 0.98;
 const textIOR = 1.5;
+const hdrFilePath = 'ocean_hdri/001/001.hdr'; // Change this path to your HDRI file
 
 let camera, scene, renderer, controls, water, sky, sun;
 const textMeshes = [];
 
-// Parameters object to manage sun position
+// Parameters object to manage sun position and environment map
 const params = {
     elevation: 2,
-    azimuth: 180
+    azimuth: 180,
+    environment: 'Sky'
 };
 
 // Initialize the scene
@@ -76,7 +78,7 @@ function setupControls() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
-    controls.maxPolarAngle = Math.PI / 2; // Limit the vertical rotation of the camera
+    controls.maxPolarAngle = Math.PI / 2.1; // Limit the vertical rotation of the camera slightly above the horizon
 }
 
 // Set up the lights in the scene
@@ -134,7 +136,6 @@ function createText(message, callback) {
             envMapIntensity: textEnvMapIntensity,
             clearcoat: textClearcoat,
             clearcoatRoughness: textClearcoatRoughness,
-            refractionRatio: textRefractionRatio,
             ior: textIOR,
             envMap: scene.environment
         });
@@ -206,6 +207,31 @@ function updateSunPosition() {
     console.log(`Sun position updated: Azimuth=${params.azimuth}, Elevation=${params.elevation}`);
 }
 
+// Load HDRI environment
+async function loadHDRI(url) {
+    try {
+        const texture = await new Promise((resolve, reject) => {
+            new RGBELoader().load(url, resolve, undefined, reject);
+        });
+
+        const pmremGenerator = new THREE.PMREMGenerator(renderer);
+        pmremGenerator.compileEquirectangularShader();
+        const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+
+        scene.environment = envMap;
+        scene.background = envMap;
+
+        textMeshes.forEach(mesh => {
+            mesh.material.envMap = envMap;
+            mesh.material.needsUpdate = true;
+        });
+
+        console.log("HDRI environment loaded from:", url);
+    } catch (error) {
+        console.error("Error loading HDRI:", error);
+    }
+}
+
 // Handle window resize events
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
@@ -217,7 +243,9 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
-    water.material.uniforms['time'].value += 1.0 / 60.0; // Update water animation
+    if (water && water.material.uniforms['time']) {
+        water.material.uniforms['time'].value += 1.0 / 60.0; // Update water animation
+    }
     renderer.render(scene, camera);
 }
 
@@ -235,7 +263,6 @@ function initGUI() {
         textFolder.add(textMaterial, 'envMapIntensity', 0, 3);
         textFolder.add(textMaterial, 'clearcoat', 0, 1);
         textFolder.add(textMaterial, 'clearcoatRoughness', 0, 1);
-        textFolder.add(textMaterial, 'refractionRatio', 0.5, 1);
         textFolder.add(textMaterial, 'ior', 1, 2.333);
         textFolder.open();
     } else {
@@ -247,4 +274,15 @@ function initGUI() {
     sunFolder.add(params, 'elevation', 0, 90).onChange(updateSunPosition);
     sunFolder.add(params, 'azimuth', -180, 180).onChange(updateSunPosition);
     sunFolder.open();
+
+    // Environment Controls
+    const environmentFolder = gui.addFolder('Environment');
+    environmentFolder.add(params, 'environment', ['Sky', 'HDRI']).onChange(value => {
+        if (value === 'Sky') {
+            initSky();
+        } else {
+            loadHDRI(hdrFilePath); // Use the HDR file path variable
+        }
+    });
+    environmentFolder.open();
 }
