@@ -23,6 +23,10 @@ module.exports = (env, argv) => {
             },
           },
         },
+        {
+          test: /\.hdr$/,
+          use: 'url-loader',
+        },
       ],
     },
     plugins: [

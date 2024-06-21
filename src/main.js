@@ -23,9 +23,11 @@ const textEnvMapIntensity = 1.0;
 const textClearcoat = 1.0;
 const textClearcoatRoughness = 0.1;
 const textIOR = 1.5;
-const hdrFilePath = 'ocean_hdri/001/001.hdr'; // Change this path to your HDRI file
+const hdrPath = '/Users/artas/githubProjects/funky-website/ocean_hdri/royal_esplanade_1k.hdr'; // Adjust this to the actual path of your HDR file
 
-let camera, scene, renderer, controls, water, sky, sun;
+
+
+let camera, scene, renderer, controls, water, sky, sun, pmremGenerator;
 const textMeshes = [];
 
 // Parameters object to manage sun position and environment map
@@ -45,6 +47,8 @@ function init() {
     setupRenderer();
     setupControls();
     setupLights();
+    pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
     initSky(() => {
         setupObjects(() => {
             initGUI(); // Initialize GUI after objects are set up
@@ -184,8 +188,6 @@ function initSky(callback) {
     scene.add(sky);
 
     // Update scene environment and background with sky
-    const pmremGenerator = new THREE.PMREMGenerator(renderer);
-    pmremGenerator.compileEquirectangularShader();
     const skyRenderTarget = pmremGenerator.fromScene(sky);
     scene.environment = skyRenderTarget.texture;
     scene.background = skyRenderTarget.texture;
@@ -208,28 +210,24 @@ function updateSunPosition() {
 }
 
 // Load HDRI environment
-async function loadHDRI(url) {
-    try {
-        const texture = await new Promise((resolve, reject) => {
-            new RGBELoader().load(url, resolve, undefined, reject);
+function loadHDRI() {
+    new RGBELoader()
+        .setDataType(THREE.UnsignedByteType)
+        .load(hdrPath, function (texture) {
+            const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
+            scene.environment = hdrRenderTarget.texture;
+            scene.background = hdrRenderTarget.texture;
+
+            textMeshes.forEach(mesh => {
+                mesh.material.envMap = hdrRenderTarget.texture;
+                mesh.material.needsUpdate = true;
+            });
+
+            texture.dispose();
+            pmremGenerator.dispose();
+
+            console.log("HDRI environment loaded");
         });
-
-        const pmremGenerator = new THREE.PMREMGenerator(renderer);
-        pmremGenerator.compileEquirectangularShader();
-        const envMap = pmremGenerator.fromEquirectangular(texture).texture;
-
-        scene.environment = envMap;
-        scene.background = envMap;
-
-        textMeshes.forEach(mesh => {
-            mesh.material.envMap = envMap;
-            mesh.material.needsUpdate = true;
-        });
-
-        console.log("HDRI environment loaded from:", url);
-    } catch (error) {
-        console.error("Error loading HDRI:", error);
-    }
 }
 
 // Handle window resize events
@@ -281,7 +279,7 @@ function initGUI() {
         if (value === 'Sky') {
             initSky();
         } else {
-            loadHDRI(hdrFilePath); // Use the HDR file path variable
+            loadHDRI(); // Use HDRI
         }
     });
     environmentFolder.open();
