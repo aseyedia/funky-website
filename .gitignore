@@ -85,3 +85,5 @@ __snowpack__/
 # Ignore .eslintrc, .prettierrc, etc. configuration files
 .eslintrc.json
 .prettierrc.json
+
+ocean_hdri/
