@@ -3,12 +3,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-const hdrPath = './assets/hdr/royal_esplanade_1k.hdr';
-
-let camera, scene, renderer, controls, pmremGenerator;
+let camera, scene, renderer, controls, pmremGenerator, water;
 const textMeshes = [];
+let hdrPath = './assets/hdr/ocean_hdri/001/001.hdr';
 
 const params = {
     roughness: 0.1,
@@ -28,7 +28,7 @@ function init() {
     pmremGenerator.compileEquirectangularShader();
     setupLights();
     loadHDRI(() => {
-        createText('Arta Seyedian', () => {
+        setupObjects(() => {
             initGUI();
         });
     });
@@ -72,6 +72,13 @@ function setupLights() {
     scene.add(dirLight);
 }
 
+function setupObjects(callback) {
+    createText('Arta Seyedian', () => {
+        createOcean();
+        if (callback) callback();
+    });
+}
+
 function createText(message, callback) {
     const loader = new FontLoader();
     loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
@@ -109,6 +116,25 @@ function createText(message, callback) {
     });
 }
 
+function createOcean() {
+    const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+    water = new Water(waterGeometry, {
+        textureWidth: 512,
+        textureHeight: 512,
+        waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', (texture) => {
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        }),
+        alpha: 1.0,
+        sunDirection: new THREE.Vector3(),
+        sunColor: 0xffffff,
+        waterColor: 0x001e0f,
+        distortionScale: 3.7,
+        fog: scene.fog !== undefined
+    });
+    water.rotation.x = -Math.PI / 2;
+    scene.add(water);
+}
+
 function loadHDRI(callback) {
     console.log("Loading HDRI from path:", hdrPath);
     new RGBELoader()
@@ -144,6 +170,9 @@ function onWindowResize() {
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
+    if (water && water.material.uniforms['time']) {
+        water.material.uniforms['time'].value += 1.0 / 60.0;
+    }
     renderer.render(scene, camera);
 }
 
@@ -160,4 +189,20 @@ function initGUI() {
     } else {
         console.error('Text material not found for GUI initialization.');
     }
+    
+    const hdrFolder = gui.addFolder('HDRI');
+    hdrFolder.add({ loadHDRI: () => {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.hdr';
+        input.onchange = (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                hdrPath = URL.createObjectURL(file);
+                loadHDRI();
+            }
+        };
+        input.click();
+    }}, 'loadHDRI').name('Load HDRI');
+    hdrFolder.open();
 }
