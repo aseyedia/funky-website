@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@monogrid/gainmap-js": "^3.0.5",
     "dat.gui": "^0.7.9",
     "express": "^4.19.2",
     "p5": "^1.9.4",
