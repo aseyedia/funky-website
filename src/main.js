@@ -189,20 +189,23 @@ function initGUI() {
     } else {
         console.error('Text material not found for GUI initialization.');
     }
-    
+
     const hdrFolder = gui.addFolder('HDRI');
-    hdrFolder.add({ loadHDRI: () => {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.hdr';
-        input.onchange = (event) => {
-            const file = event.target.files[0];
-            if (file) {
-                hdrPath = URL.createObjectURL(file);
-                loadHDRI();
-            }
-        };
-        input.click();
-    }}, 'loadHDRI').name('Load HDRI');
+    const hdrOptions = {
+        '001/001.hdr': '001/001.hdr',
+        '002/002.hdr': '002/002.hdr',
+        '003/003.hdr': '003/003.hdr',
+        '004/004.hdr': '004/004.hdr',
+        '005/005.hdr': '005/005.hdr',
+        '006/006.hdr': '006/006.hdr',
+        '007/007.hdr': '007/007.hdr',
+        '008/008.hdr': '008/008.hdr'
+    };
+    
+    hdrOptions['royal_esplanade_1k.hdr'] = 'royal_esplanade_1k.hdr';
+    hdrFolder.add({ hdr: hdrOptions['001/001.hdr'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
+        hdrPath = value === 'royal_esplanade_1k.hdr' ? `./assets/hdr/${value}` : `./assets/hdr/ocean_hdri/${value}`;
+        loadHDRI();
+    });
     hdrFolder.open();
 }
