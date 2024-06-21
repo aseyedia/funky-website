@@ -16,6 +16,20 @@ const params = {
     exposure: 1.0
 };
 
+// Create a loading screen
+const loadingScreen = document.createElement('div');
+loadingScreen.id = 'loadingScreen';
+loadingScreen.style.position = 'absolute';
+loadingScreen.style.width = '100%';
+loadingScreen.style.height = '100%';
+loadingScreen.style.backgroundColor = '#000';
+loadingScreen.style.color = '#fff';
+loadingScreen.style.display = 'flex';
+loadingScreen.style.alignItems = 'center';
+loadingScreen.style.justifyContent = 'center';
+loadingScreen.innerText = 'Loading...';
+document.body.appendChild(loadingScreen);
+
 init();
 animate();
 
@@ -27,9 +41,12 @@ function init() {
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     setupLights();
-    loadInitialHDRI();
-    setupObjects(() => {
-        initGUI();
+    loadInitialHDRI(() => {
+        setupObjects(() => {
+            initGUI();
+            // Hide loading screen
+            loadingScreen.style.display = 'none';
+        });
     });
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
@@ -84,7 +101,7 @@ function createText(message, callback) {
         const textGeometry = new TextGeometry(message, {
             font: font,
             size: 10,
-            height: 2,
+            depth: 2,
             curveSegments: 12,
             bevelEnabled: true,
             bevelThickness: 1,
@@ -134,11 +151,11 @@ function createOcean() {
     scene.add(water);
 }
 
-function loadInitialHDRI() {
+function loadInitialHDRI(callback) {
     hdrPath = './assets/hdr/ocean_hdri/001/001.hdr';
     loadHDRI(() => {
         const depthDir = './assets/hdr/ocean_hdri/001';
-        loadDepthMapFromDir(depthDir);
+        loadDepthMapFromDir(depthDir, callback);
     });
 }
 
@@ -179,7 +196,7 @@ function loadDepthMap(path, callback) {
     });
 }
 
-function loadDepthMapFromDir(depthDir) {
+function loadDepthMapFromDir(depthDir, callback) {
     const depthFile = 'depth.jpg';
     const filePath = `${depthDir}/${depthFile}`;
     console.log("Checking:", filePath);
@@ -189,12 +206,12 @@ function loadDepthMapFromDir(depthDir) {
 
     if (req.status !== 404) {
         console.log("Depth map path:", filePath);
-        loadDepthMap(filePath);
+        loadDepthMap(filePath, callback);
     } else {
         console.log("No depth map found for directory:", depthDir);
+        if (callback) callback(); // Ensure callback is called if no depth map is found
     }
 }
-
 
 function updateTextEnvMap(envMap) {
     textMeshes.forEach(mesh => {
