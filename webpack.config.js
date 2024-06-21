@@ -9,7 +9,7 @@ module.exports = (env, argv) => {
     output: {
       filename: 'bundle.js',
       path: path.resolve(__dirname, 'dist'),
-      clean: true, // Ensure the dist directory is cleaned before each build
+      clean: true,
     },
     module: {
       rules: [
@@ -25,7 +25,14 @@ module.exports = (env, argv) => {
         },
         {
           test: /\.hdr$/,
-          use: 'url-loader',
+          use: [
+            {
+              loader: 'file-loader',
+              options: {
+                name: 'assets/hdr/[name].[ext]',
+              },
+            },
+          ],
         },
       ],
     },

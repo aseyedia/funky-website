@@ -7,37 +7,17 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-// Important parameters
-const skyScale = 450000;
-const cameraFOV = 70;
-const cameraPosition = new THREE.Vector3(0, 30, 100);
-const ambientLightColor = 0xffffff;
-const ambientLightIntensity = 0.5;
-const spotLightColor = 0xffffff;
-const spotLightIntensity = 1;
-const spotLightPosition = new THREE.Vector3(2, 2, 2);
-const textColor = 0xffffff;
-const textMetalness = 0.1;
-const textRoughness = 0.4;
-const textEnvMapIntensity = 1.0;
-const textClearcoat = 1.0;
-const textClearcoatRoughness = 0.1;
-const textIOR = 1.5;
-const hdrPath = '/Users/artas/githubProjects/funky-website/ocean_hdri/royal_esplanade_1k.hdr'; // Adjust this to the actual path of your HDR file
-
-
+const hdrPath = './assets/hdr/royal_esplanade_1k.hdr';
 
 let camera, scene, renderer, controls, water, sky, sun, pmremGenerator;
 const textMeshes = [];
 
-// Parameters object to manage sun position and environment map
 const params = {
     elevation: 2,
     azimuth: 180,
     environment: 'Sky'
 };
 
-// Initialize the scene
 init();
 animate();
 
@@ -49,49 +29,48 @@ function init() {
     setupLights();
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
+    checkHDRFileAccess();
     initSky(() => {
         setupObjects(() => {
-            initGUI(); // Initialize GUI after objects are set up
+            initGUI();
         });
     });
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
 }
 
-// Set up the camera
 function setupCamera() {
-    camera = new THREE.PerspectiveCamera(cameraFOV, window.innerWidth / window.innerHeight, 0.01, 1000);
-    camera.position.copy(cameraPosition);
+    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 1000);
+    camera.position.set(0, 30, 100);
 }
 
-// Set up the scene
 function setupScene() {
     scene = new THREE.Scene();
 }
 
-// Set up the renderer
 function setupRenderer() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.6;
+    renderer.outputEncoding = THREE.sRGBEncoding;
     document.body.appendChild(renderer.domElement);
 }
 
-// Set up the controls for camera movement
 function setupControls() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
-    controls.maxPolarAngle = Math.PI / 2.1; // Limit the vertical rotation of the camera slightly above the horizon
+    controls.maxPolarAngle = Math.PI / 2.1;
 }
 
-// Set up the lights in the scene
 function setupLights() {
-    const ambLight = new THREE.AmbientLight(ambientLightColor, ambientLightIntensity); // Ambient light
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambLight);
 
-    const spotLight = new THREE.SpotLight(spotLightColor, spotLightIntensity); // Spotlight
-    spotLight.position.copy(spotLightPosition);
+    const spotLight = new THREE.SpotLight(0xffffff, 1);
+    spotLight.position.set(2, 2, 2);
     spotLight.castShadow = true;
     spotLight.angle = Math.PI / 6;
     spotLight.penumbra = 0.1;
@@ -104,7 +83,6 @@ function setupLights() {
     scene.add(spotLight);
 }
 
-// Set up objects in the scene
 function setupObjects(callback) {
     createText('Arta Seyedian', () => {
         createOcean();
@@ -112,11 +90,10 @@ function setupObjects(callback) {
     });
 }
 
-// Create 3D text
 function createText(message, callback) {
     const loader = new FontLoader();
     loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
-        const fontOptions = {
+        const textGeometry = new TextGeometry(message, {
             font: font,
             size: 10,
             height: 2,
@@ -126,37 +103,29 @@ function createText(message, callback) {
             bevelSize: 1,
             bevelOffset: 0,
             bevelSegments: 3
-        };
-
-        const textGeometry = new TextGeometry(message, fontOptions);
+        });
         textGeometry.computeBoundingBox();
-
         const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-
         const textMaterial = new THREE.MeshPhysicalMaterial({
-            color: textColor,
-            metalness: textMetalness,
-            roughness: textRoughness,
-            envMapIntensity: textEnvMapIntensity,
-            clearcoat: textClearcoat,
-            clearcoatRoughness: textClearcoatRoughness,
-            ior: textIOR,
+            color: 0xffffff,
+            metalness: 0.1,
+            roughness: 0.4,
+            envMapIntensity: 1.0,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0.1,
+            ior: 1.5,
             envMap: scene.environment
         });
-
         const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textMesh.position.set(centerOffsetX, 10, 0); // Set Y offset to +10
+        textMesh.position.set(centerOffsetX, 10, 0);
         textMesh.castShadow = true;
         scene.add(textMesh);
         textMeshes.push(textMesh);
-
         console.log("Text mesh created:", textMesh);
-
         if (callback) callback();
     });
 }
 
-// Create ocean using water object
 function createOcean() {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
     water = new Water(waterGeometry, {
@@ -172,36 +141,26 @@ function createOcean() {
         distortionScale: 3.7,
         fog: scene.fog !== undefined
     });
-
     water.rotation.x = -Math.PI / 2;
     scene.add(water);
 }
 
-// Initialize sky object and set as environment map
 function initSky(callback) {
     sky = new Sky();
-    sky.scale.setScalar(skyScale);
+    sky.scale.setScalar(450000);
     sun = new THREE.Vector3();
-
     updateSunPosition();
-
     scene.add(sky);
-
-    // Update scene environment and background with sky
     const skyRenderTarget = pmremGenerator.fromScene(sky);
     scene.environment = skyRenderTarget.texture;
     scene.background = skyRenderTarget.texture;
-
     console.log("Sky initialized and set as environment");
-
     if (callback) callback();
 }
 
-// Update the sun position
 function updateSunPosition() {
     const phi = THREE.MathUtils.degToRad(90 - params.elevation);
     const theta = THREE.MathUtils.degToRad(params.azimuth);
-
     sun.setFromSphericalCoords(1, phi, theta);
     if (sky.material.uniforms) {
         sky.material.uniforms.sunPosition.value.copy(sun);
@@ -209,53 +168,73 @@ function updateSunPosition() {
     console.log(`Sun position updated: Azimuth=${params.azimuth}, Elevation=${params.elevation}`);
 }
 
-// Load HDRI environment
 function loadHDRI() {
-    new RGBELoader()
-        .setDataType(THREE.UnsignedByteType)
-        .load(hdrPath, function (texture) {
-            const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
-            scene.environment = hdrRenderTarget.texture;
-            scene.background = hdrRenderTarget.texture;
-
-            textMeshes.forEach(mesh => {
-                mesh.material.envMap = hdrRenderTarget.texture;
-                mesh.material.needsUpdate = true;
-            });
-
-            texture.dispose();
-            pmremGenerator.dispose();
-
-            console.log("HDRI environment loaded");
+    console.log("Loading HDRI from path:", hdrPath);
+    fetch(hdrPath)
+        .then(response => response.arrayBuffer())
+        .then(buffer => {
+            console.log("HDRI file loaded, buffer length:", buffer.byteLength);
+            new RGBELoader()
+                .setDataType(THREE.HalfFloatType)
+                .parse(buffer, function (texture) {
+                    console.log("HDRI parsed successfully", texture);
+                    const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
+                    scene.environment = hdrRenderTarget.texture;
+                    scene.background = hdrRenderTarget.texture;
+                    textMeshes.forEach(mesh => {
+                        mesh.material.envMap = hdrRenderTarget.texture;
+                        mesh.material.needsUpdate = true;
+                    });
+                    texture.dispose();
+                    pmremGenerator.dispose();
+                    console.log("HDRI environment applied");
+                }, function (error) {
+                    console.error("Error parsing HDRI:", error);
+                });
+        })
+        .catch(error => {
+            console.error("Error loading HDRI file:", error);
         });
 }
 
-// Handle window resize events
+function checkHDRFileAccess() {
+    fetch(hdrPath)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            console.log("HDRI file is accessible:", blob);
+            loadHDRI();
+        })
+        .catch(error => {
+            console.error("Error checking HDRI file access:", error);
+        });
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-// Animation loop
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
     if (water && water.material.uniforms['time']) {
-        water.material.uniforms['time'].value += 1.0 / 60.0; // Update water animation
+        water.material.uniforms['time'].value += 1.0 / 60.0;
     }
     renderer.render(scene, camera);
 }
 
-// GUI for controlling materials and sun position
 function initGUI() {
     const gui = new GUI();
-
-    // Text Material Controls
     const textMaterial = textMeshes[0]?.material;
     if (textMaterial) {
         const textFolder = gui.addFolder('Text Material');
-        textFolder.addColor({ color: textColor }, 'color').onChange(value => textMaterial.color.set(value));
+        textFolder.addColor({ color: 0xffffff }, 'color').onChange(value => textMaterial.color.set(value));
         textFolder.add(textMaterial, 'metalness', 0, 1);
         textFolder.add(textMaterial, 'roughness', 0, 1);
         textFolder.add(textMaterial, 'envMapIntensity', 0, 3);
@@ -266,20 +245,16 @@ function initGUI() {
     } else {
         console.error('Text material not found for GUI initialization.');
     }
-
-    // Sun Controls
     const sunFolder = gui.addFolder('Sun');
     sunFolder.add(params, 'elevation', 0, 90).onChange(updateSunPosition);
     sunFolder.add(params, 'azimuth', -180, 180).onChange(updateSunPosition);
     sunFolder.open();
-
-    // Environment Controls
     const environmentFolder = gui.addFolder('Environment');
     environmentFolder.add(params, 'environment', ['Sky', 'HDRI']).onChange(value => {
         if (value === 'Sky') {
             initSky();
         } else {
-            loadHDRI(); // Use HDRI
+            loadHDRI();
         }
     });
     environmentFolder.open();
