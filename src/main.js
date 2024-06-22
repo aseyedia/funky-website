@@ -9,6 +9,9 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 let sound;
 
+let currentHDRTexture = null;
+let currentHDRRenderTarget = null;
+
 const textMeshes = [];
 let hdrPath = '';
 
@@ -49,6 +52,10 @@ function init() {
             initGUI();
             // Hide loading screen
             loadingScreen.style.display = 'none';
+            // Show play button on mobile
+            if (isMobile()) {
+                document.getElementById('playButton').style.display = 'block';
+            }
         });
     });
     window.addEventListener('resize', onWindowResize, false);
@@ -64,7 +71,6 @@ function setupCamera() {
     const fov = isMobile() ? 80 : 40; // Increase FOV for mobile devices
     camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 1000);
     camera.position.set(0, 30, 100);
-
 }
 
 function setupScene() {
@@ -211,12 +217,25 @@ function loadHDRI(callback) {
         .setDataType(THREE.HalfFloatType) // Use HalfFloatType
         .load(hdrPath, (texture) => {
             console.log("HDRI parsed successfully", texture);
+
+            // Dispose of the previous HDR texture and render target
+            if (currentHDRTexture) {
+                currentHDRTexture.dispose();
+            }
+            if (currentHDRRenderTarget) {
+                currentHDRRenderTarget.texture.dispose();
+                currentHDRRenderTarget.dispose();
+            }
+
             const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
             scene.environment = hdrRenderTarget.texture;
             scene.background = hdrRenderTarget.texture;
             updateTextEnvMap(hdrRenderTarget.texture);
-            texture.dispose();
-            pmremGenerator.dispose();
+
+            // Keep track of the current HDR texture and render target
+            currentHDRTexture = texture;
+            currentHDRRenderTarget = hdrRenderTarget;
+
             console.log("HDRI environment applied");
 
             if (callback) callback();
