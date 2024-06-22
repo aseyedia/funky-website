@@ -5,8 +5,11 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { AudioLoader, AudioListener, Audio } from 'three';
 
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
+let sound;
+
 const textMeshes = [];
 let hdrPath = '';
 
@@ -38,6 +41,7 @@ function init() {
     setupScene();
     setupRenderer();
     setupControls();
+    setupAudio(); // Call setupAudio here
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     setupLights();
@@ -76,6 +80,24 @@ function setupControls() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.maxPolarAngle = Math.PI / 2.1;
+}
+
+function setupAudio() {
+    // Create an AudioListener and add it to the camera
+    const listener = new THREE.AudioListener();
+    camera.add(listener);
+
+    // Create a global audio source
+    sound = new THREE.Audio(listener);
+
+    // Load a sound and set it as the Audio object's buffer
+    const audioLoader = new THREE.AudioLoader();
+    audioLoader.load('/fresh_and_clean.mp3', function (buffer) {
+        sound.setBuffer(buffer);
+        sound.setLoop(true);
+        sound.setVolume(0.5);
+        sound.play();
+    });
 }
 
 function setupLights() {
@@ -274,3 +296,5 @@ function initGUI() {
     });
     hdrFolder.open();
 }
+
+       
