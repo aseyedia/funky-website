@@ -86,6 +86,7 @@ function setupControls() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.maxPolarAngle = Math.PI / 2.1;
+    controls.maxDistance = 200;
 }
 
 function setupAudio() {
