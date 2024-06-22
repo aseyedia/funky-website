@@ -152,9 +152,9 @@ function createOcean() {
 }
 
 function loadInitialHDRI(callback) {
-    hdrPath = './assets/hdr/ocean_hdri/001/001.hdr';
+    hdrPath = '/hdr/ocean_hdri/001/001.hdr';
     loadHDRI(() => {
-        const depthDir = './assets/hdr/ocean_hdri/001';
+        const depthDir = '/hdr/ocean_hdri/001';
         loadDepthMapFromDir(depthDir, callback);
     });
 }
@@ -263,11 +263,11 @@ function initGUI() {
 
     hdrOptions['memorial.hdr'] = 'memorial.hdr';
     hdrFolder.add({ hdr: hdrOptions['001/001.hdr'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
-        hdrPath = value === 'memorial.hdr' ? `./assets/hdr/${value}` : `./assets/hdr/ocean_hdri/${value}`;
+        hdrPath = value === 'memorial.hdr' ? `/hdr/${value}` : `/hdr/ocean_hdri/${value}`;
         loadHDRI(() => {
             // if memorial.hdr, no depth map
             if (value === 'memorial.hdr') return;
-            const depthDir = `./assets/hdr/ocean_hdri/${value.split('/')[0]}`;
+            const depthDir = `/hdr/ocean_hdri/${value.split('/')[0]}`;
             console.log("Depth directory:", depthDir);
             loadDepthMapFromDir(depthDir);
         });

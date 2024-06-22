@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite';
+import { viteStaticCopy } from 'vite-plugin-static-copy';
 
 export default defineConfig({
-  root: 'src',
+  root: './src',
   build: {
-    outDir: './dist'
+    outDir: './dist',
   },
   server: {
-    port: 3000
+    port: 3000,
   }
+  // publicDir: 'src/public', // Set the public directory
 });
