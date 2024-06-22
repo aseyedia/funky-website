@@ -32,7 +32,7 @@
             Thank you so much for coming to my website! It really means a lot to me 😀<br/>
             Have a look around, and feel free to get in touch!<br/>
             <a href="https://www.linkedin.com/in/artaseyedian" target="_blank" rel="noopener">LinkedIn</a> |
-            <a href="mailto:arta.seyedian@gmail.com">Email</a> |
+            <span class="copy-email" id="copy-email">Email</span> |
             <a href="https://github.com/aseyedia" target="_blank" rel="noopener">GitHub</a>
         </div>
     </div>
@@ -45,6 +45,15 @@
             } else {
                 infoContent.style.display = 'none';
             }
+        });
+
+        document.getElementById('copy-email').addEventListener('click', function() {
+            const email = 'arta.seyedian@gmail.com';
+            navigator.clipboard.writeText(email).then(function() {
+                alert('Email address copied to clipboard!');
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+            });
         });
     </script>
 </body>

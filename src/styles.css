@@ -13,7 +13,7 @@ a {
     text-decoration: none;
 }
 
-a:hover {
+a:hover, .copy-email:hover {
     text-decoration: underline;
 }
 
@@ -45,6 +45,12 @@ button {
     padding: 10px;
     display: none; /* Hide by default */
     text-align: center;
+}
+
+.copy-email {
+    color: #ff0;
+    cursor: pointer;
+    text-decoration: none;
 }
 
 .lil-gui {
