@@ -50,13 +50,17 @@
         document.getElementById('copy-email').addEventListener('click', function() {
             const email = 'arta.seyedian@gmail.com';
             navigator.clipboard.writeText(email).then(function() {
-                const copyEmailElement = document.getElementById('copy-email');
-                copyEmailElement.textContent = 'Email Copied!';
+                const emailLink = document.getElementById('copy-email');
+                emailLink.innerText = '✓ Email Address Copied';
+                emailLink.style.color = 'lime';
+                setTimeout(function() {
+                    emailLink.innerText = 'Email';
+                    emailLink.style.color = '#ff0';
+                }, 3000); // Reset the text after 3 seconds
             }, function(err) {
                 console.error('Could not copy text: ', err);
             });
         });
-    </script>
     </script>
 </body>
 </html>
