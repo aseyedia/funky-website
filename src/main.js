@@ -87,6 +87,7 @@ function setupControls() {
     controls.dampingFactor = 0.1;
     controls.maxPolarAngle = Math.PI / 2.1;
     controls.maxDistance = 200;
+    controls.minDistance = 90;
 }
 
 function setupAudio() {
@@ -96,17 +97,30 @@ function setupAudio() {
     sound = new THREE.Audio(listener);
 
     const audioLoader = new THREE.AudioLoader();
-    // log success or error
-    audioLoader.onLoad = () => console.log("Audio loaded successfully");
-
+    
     // Load a sound and set it as the Audio object's buffer
     audioLoader.load('/fresh_and_clean.mp3', function (buffer) {
         sound.setBuffer(buffer);
         sound.setLoop(true);
         sound.setVolume(0.5);
-        sound.play();
+        // Play the sound if the context is already resumed
+        if (listener.context.state === 'suspended') {
+            document.addEventListener('click', resumeAudioContext);
+            document.addEventListener('keydown', resumeAudioContext);
+        } else {
+            sound.play();
+        }
     });
+
+    function resumeAudioContext() {
+        listener.context.resume().then(() => {
+            sound.play();
+            document.removeEventListener('click', resumeAudioContext);
+            document.removeEventListener('keydown', resumeAudioContext);
+        });
+    }
 }
+
 
 function setupLights() {
     const ambLight = new THREE.AmbientLight(0xffffff, 1.5); // Increased intensity

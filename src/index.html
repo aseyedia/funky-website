@@ -5,11 +5,47 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arta's World</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <style>
-        body { margin: 0; overflow: hidden; background: linear-gradient(90deg, rgba(255, 0, 150, 1) 0%, rgba(0, 204, 255, 1) 100%); }
-    </style>
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Standard Meta Tags -->
+    <meta name="description" content="Explore the professional portfolio and projects of Arta Seyedian.">
+
+    <!-- Open Graph Meta Tags -->
+    <meta property="og:title" content="Arta Seyedian - Bioinformatics Data Engineer">
+    <meta property="og:description" content="Discover the work and accomplishments of Arta Seyedian.">
+    <!-- <meta property="og:image" content="https://yourwebsite.com/path/to/image.jpg"> -->
+    <meta property="og:url" content="https://artaseyedian.com">
+    <meta property="og:type" content="website">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Arta Seyedian - Bioinformatics Data Engineer">
+    <meta name="twitter:description" content="Discover the work and accomplishments of Arta Seyedian.">
+    <!-- <meta name="twitter:image" content="https://yourwebsite.com/path/to/image.jpg"> -->
+    <meta name="twitter:url" content="https://artaseyedian.com/">
 </head>
 <body>
+    <div id="container"></div>
+    <div id="info-container">
+        <div id="info-header">Info</div>
+        <div id="info-content">
+            Thank you so much for coming to my website! It really means a lot to me 😀<br/>
+            Have a look around, and feel free to get in touch!<br/>
+            <a href="https://www.linkedin.com/in/artaseyedian" target="_blank" rel="noopener">LinkedIn</a> |
+            <a href="mailto:arta.seyedian@gmail.com">Email</a> |
+            <a href="https://github.com/aseyedia" target="_blank" rel="noopener">GitHub</a>
+        </div>
+    </div>
     <script type="module" src="/main.js"></script>
+    <script>
+        document.getElementById('info-header').addEventListener('click', function() {
+            var infoContent = document.getElementById('info-content');
+            if (infoContent.style.display === 'none' || infoContent.style.display === '') {
+                infoContent.style.display = 'block';
+            } else {
+                infoContent.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>
