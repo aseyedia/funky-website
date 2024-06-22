@@ -50,11 +50,13 @@
         document.getElementById('copy-email').addEventListener('click', function() {
             const email = 'arta.seyedian@gmail.com';
             navigator.clipboard.writeText(email).then(function() {
-                alert('Email address copied to clipboard!');
+                const copyEmailElement = document.getElementById('copy-email');
+                copyEmailElement.textContent = 'Email Copied!';
             }, function(err) {
                 console.error('Could not copy text: ', err);
             });
         });
+    </script>
     </script>
 </body>
 </html>
