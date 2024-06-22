@@ -5,7 +5,6 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { AudioLoader, AudioListener, Audio } from 'three';
 
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 let sound;
@@ -41,7 +40,7 @@ function init() {
     setupScene();
     setupRenderer();
     setupControls();
-    setupAudio(); // Call setupAudio here
+    setupAudio();
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     setupLights();
@@ -56,9 +55,16 @@ function init() {
     console.log("Initial setup complete");
 }
 
+function isMobile() {
+    const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+    return (/android/i.test(userAgent) || /iPad|iPhone|iPod/.test(userAgent) && !window.MSStream);
+}
+
 function setupCamera() {
-    camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 1, 1000);
+    const fov = isMobile() ? 80 : 40; // Increase FOV for mobile devices
+    camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 1000);
     camera.position.set(0, 30, 100);
+
 }
 
 function setupScene() {
@@ -83,15 +89,16 @@ function setupControls() {
 }
 
 function setupAudio() {
-    // Create an AudioListener and add it to the camera
     const listener = new THREE.AudioListener();
     camera.add(listener);
 
-    // Create a global audio source
     sound = new THREE.Audio(listener);
 
-    // Load a sound and set it as the Audio object's buffer
     const audioLoader = new THREE.AudioLoader();
+    // log success or error
+    audioLoader.onLoad = () => console.log("Audio loaded successfully");
+
+    // Load a sound and set it as the Audio object's buffer
     audioLoader.load('/fresh_and_clean.mp3', function (buffer) {
         sound.setBuffer(buffer);
         sound.setLoop(true);
@@ -266,25 +273,26 @@ function initGUI() {
         textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
         textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
         textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
-        textFolder.open();
+        // isMobile() ? textFolder.close() : textFolder.open();
+        textFolder.close()
     } else {
         console.error('Text material not found for GUI initialization.');
     }
 
     const hdrFolder = gui.addFolder('HDRI');
     const hdrOptions = {
-        '001/001.hdr': '001/001.hdr',
-        '002/002.hdr': '002/002.hdr',
-        '003/003.hdr': '003/003.hdr',
-        '004/004.hdr': '004/004.hdr',
-        '005/005.hdr': '005/005.hdr',
-        '006/006.hdr': '006/006.hdr',
-        '007/007.hdr': '007/007.hdr',
-        '008/008.hdr': '008/008.hdr'
+        'Day': '001/001.hdr',
+        'Dusk': '002/002.hdr',
+        'Stormy': '003/003.hdr',
+        'Overcast': '004/004.hdr',
+        'Pink Sunset': '005/005.hdr',
+        'Full Moon': '006/006.hdr',
+        'Cloudy Sunset': '007/007.hdr',
+        'Another World': '008/008.hdr'
     };
 
-    hdrOptions['memorial.hdr'] = 'memorial.hdr';
-    hdrFolder.add({ hdr: hdrOptions['001/001.hdr'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
+    hdrOptions['Memorial Church'] = 'memorial.hdr';
+    hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
         hdrPath = value === 'memorial.hdr' ? `/hdr/${value}` : `/hdr/ocean_hdri/${value}`;
         loadHDRI(() => {
             // if memorial.hdr, no depth map
@@ -294,7 +302,15 @@ function initGUI() {
             loadDepthMapFromDir(depthDir);
         });
     });
-    hdrFolder.open();
-}
 
-       
+    // isMobile() ? hdrFolder.close() : hdrFolder.open();
+    hdrFolder.close() 
+
+    // add an option to mute audio
+    const audioFolder = gui.addFolder('Audio');
+    audioFolder.add({ mute: false }, 'mute').name('Mute').onChange(value => {
+        sound.setVolume(value ? 0 : 0.5);
+    });
+    audioFolder.open();
+    isMobile() ? gui.close() : gui.open();
+}
