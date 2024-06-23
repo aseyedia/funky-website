@@ -1,3 +1,6 @@
+const performanceStart = performance.now();
+console.log('Script start time:', performanceStart);
+
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
@@ -59,6 +62,9 @@ function init() {
     });
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
+    const loadingScreenTime = performance.now();
+    console.log('Total Loading time:', loadingScreenTime - performanceStart);
+
 }
 
 function isMobile() {
