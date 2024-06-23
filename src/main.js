@@ -54,10 +54,6 @@ function init() {
             initGUI();
             // Hide loading screen
             loadingScreen.style.display = 'none';
-            // Show play button on mobile
-            if (isMobile()) {
-                document.getElementById('playButton').style.display = 'block';
-            }
         });
     });
     window.addEventListener('resize', onWindowResize, false);
