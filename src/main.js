@@ -43,7 +43,6 @@ function init() {
     setupScene();
     setupRenderer();
     setupControls();
-    setupAudio();
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     setupLights();
@@ -95,7 +94,6 @@ function setupControls() {
     controls.maxDistance = 200;
     controls.minDistance = 90;
 }
-
 function setupAudio() {
     const listener = new THREE.AudioListener();
     camera.add(listener);
@@ -307,8 +305,7 @@ function initGUI() {
         textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
         textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
         textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
-        // isMobile() ? textFolder.close() : textFolder.open();
-        textFolder.close()
+        textFolder.close();
     } else {
         console.error('Text material not found for GUI initialization.');
     }
@@ -337,8 +334,7 @@ function initGUI() {
         });
     });
 
-    // isMobile() ? hdrFolder.close() : hdrFolder.open();
-    hdrFolder.close() 
+    hdrFolder.close();
 
     // add an option to mute audio
     const audioFolder = gui.addFolder('Audio');
@@ -348,3 +344,8 @@ function initGUI() {
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
 }
+
+// Lazy load non-essential scripts
+document.addEventListener('DOMContentLoaded', () => {
+    setupAudio();
+});
