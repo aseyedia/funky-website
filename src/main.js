@@ -153,7 +153,7 @@ function createText(message, callback) {
             font: font,
             size: 10,
             depth: 2,
-            curveSegments: 12,
+            curveSegments: 3,
             bevelEnabled: true,
             bevelThickness: 1,
             bevelSize: 1,
