@@ -38,6 +38,7 @@ loadingScreen.style.justifyContent = 'center';
 loadingScreen.innerText = 'Loading...';
 document.body.appendChild(loadingScreen);
 
+let isFirstCall = true;
 init();
 animate();
 
@@ -178,6 +179,9 @@ function createText(message, callback) {
         scene.add(textMesh);
         textMeshes.push(textMesh);
         console.log("Text mesh created:", textMesh);
+        // log performance time
+        const mesh = performance.now();
+        console.log("Operation took", endTime - startTime, "milliseconds"); 
         if (callback) callback();
     });
 }
@@ -290,12 +294,22 @@ function onWindowResize() {
 }
 
 function animate() {
+    
+
     requestAnimationFrame(animate);
     controls.update();
     if (water && water.material.uniforms['time']) {
         water.material.uniforms['time'].value += 1.0 / 60.0;
     }
     renderer.render(scene, camera);
+    // log performance time
+    // if first function call, log time
+    if (isFirstCall) {
+        const performanceAnimate = performance.now();
+        //print performance time
+        console.log('Time to animate():', performanceAnimate - performanceStart);
+        isFirstCall = false;
+    }
 }
 
 function initGUI() {
