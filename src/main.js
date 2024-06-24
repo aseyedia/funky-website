@@ -8,6 +8,7 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
 
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 let sound;
@@ -39,6 +40,7 @@ loadingScreen.innerText = 'Loading...';
 document.body.appendChild(loadingScreen);
 
 let isFirstCall = true;
+let sky, sun;
 init();
 animate();
 
@@ -50,18 +52,16 @@ function init() {
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
     setupLights();
-    loadInitialHDRI(() => {
-        setupObjects(() => {
-            initGUI();
-            // Hide loading screen
-            loadingScreen.style.display = 'none';
-        });
+    initSky(); // Initialize the sky
+    setupObjects(() => {
+        initGUI();
+        // Hide loading screen
+        loadingScreen.style.display = 'none';
     });
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
     const loadingScreenTime = performance.now();
     console.log('Total Loading time:', loadingScreenTime - performanceStart);
-
 }
 
 function isMobile() {
@@ -97,6 +97,7 @@ function setupControls() {
     controls.maxDistance = 200;
     controls.minDistance = 90;
 }
+
 function setupAudio() {
     const listener = new THREE.AudioListener();
     camera.add(listener);
@@ -128,7 +129,6 @@ function setupAudio() {
     }
 }
 
-
 function setupLights() {
     const ambLight = new THREE.AmbientLight(0xffffff, 1.5); // Increased intensity
     scene.add(ambLight);
@@ -153,12 +153,12 @@ function createText(message, callback) {
             font: font,
             size: 10,
             depth: 2,
-            curveSegments: 12,
+            curveSegments: 2,
             bevelEnabled: true,
             bevelThickness: 1,
             bevelSize: 1,
             bevelOffset: 0,
-            bevelSegments: 3
+            bevelSegments: 2
         });
         textGeometry.computeBoundingBox();
         const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
@@ -168,7 +168,7 @@ function createText(message, callback) {
             roughness: params.roughness,
             envMapIntensity: 1.0,
             clearcoat: 1.0,
-            clearcoatRoughness: 0,
+            clearcoatRoughness: 0.1,
             ior: 1.5,
             reflectivity: 1.0,
             envMap: scene.environment
@@ -179,9 +179,6 @@ function createText(message, callback) {
         scene.add(textMesh);
         textMeshes.push(textMesh);
         console.log("Text mesh created:", textMesh);
-        // log performance time
-        // const mesh = performance.now();
-        // console.log("Operation took", endTime - startTime, "milliseconds"); 
         if (callback) callback();
     });
 }
@@ -205,13 +202,38 @@ function createOcean() {
     scene.add(water);
 }
 
-function loadInitialHDRI(callback) {
-    hdrPath = '/hdr/ocean_hdri/001/001.hdr';
-    loadHDRI(() => {
-        const depthDir = '/hdr/ocean_hdri/001';
-        loadDepthMapFromDir(depthDir, callback);
-    });
+function initSky() {
+    sky = new Sky();
+    sky.scale.setScalar(450000);
+    scene.add(sky);
+
+    sun = new THREE.Vector3();
+
+    const effectController = {
+        elevation: 2,
+        azimuth: 180,
+    };
+
+    function guiChanged() {
+        const uniforms = sky.material.uniforms;
+        const phi = THREE.MathUtils.degToRad(90 - effectController.elevation);
+        const theta = THREE.MathUtils.degToRad(effectController.azimuth);
+
+        sun.setFromSphericalCoords(1, phi, theta);
+
+        uniforms['sunPosition'].value.copy(sun);
+
+        // Update the renderer environment and background
+        scene.environment = pmremGenerator.fromScene(sky).texture;
+        scene.background = pmremGenerator.fromScene(sky).texture;
+        updateTextEnvMap(scene.environment);
+
+        renderer.render(scene, camera);
+    }
+
+    guiChanged(); // Initialize with default values
 }
+
 
 function loadHDRI(callback) {
     if (!hdrPath) return;
@@ -294,8 +316,6 @@ function onWindowResize() {
 }
 
 function animate() {
-    
-
     requestAnimationFrame(animate);
     controls.update();
     if (water && water.material.uniforms['time']) {
@@ -318,41 +338,66 @@ function initGUI() {
     if (textMaterial) {
         const textFolder = gui.addFolder('Text Material');
         textFolder.addColor({ color: 0xffffff }, 'color').onChange(value => textMaterial.color.set(value));
-        // textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
-        // textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
-        // textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
+        textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
+        textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
+        textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
         textFolder.close();
     } else {
         console.error('Text material not found for GUI initialization.');
     }
 
-    const hdrFolder = gui.addFolder('HDRI');
-    const hdrOptions = {
-        'Day': '001/001.hdr',
-        'Dusk': '002/002.hdr',
-        'Stormy': '003/003.hdr',
-        'Overcast': '004/004.hdr',
-        'Pink Sunset': '005/005.hdr',
-        'Full Moon': '006/006.hdr',
-        'Cloudy Sunset': '007/007.hdr',
-        'Another World': '008/008.hdr'
+    // Simplified Sky GUI
+    const skyFolder = gui.addFolder('Sky');
+    const effectController = {
+        elevation: 2,
+        azimuth: 180,
     };
 
-    hdrOptions['Memorial Church'] = 'memorial.hdr';
-    hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
-        hdrPath = value === 'memorial.hdr' ? `/hdr/${value}` : `/hdr/ocean_hdri/${value}`;
-        loadHDRI(() => {
-            // if memorial.hdr, no depth map
-            if (value === 'memorial.hdr') return;
-            const depthDir = `/hdr/ocean_hdri/${value.split('/')[0]}`;
-            console.log("Depth directory:", depthDir);
-            loadDepthMapFromDir(depthDir);
-        });
+    skyFolder.add(effectController, 'elevation', 0, 90, 0.1).onChange(() => {
+        const phi = THREE.MathUtils.degToRad(90 - effectController.elevation);
+        const theta = THREE.MathUtils.degToRad(effectController.azimuth);
+
+        sun.setFromSphericalCoords(1, phi, theta);
+        sky.material.uniforms['sunPosition'].value.copy(sun);
+
+        renderer.render(scene, camera);
+    });
+    skyFolder.add(effectController, 'azimuth', -180, 180, 0.1).onChange(() => {
+        const phi = THREE.MathUtils.degToRad(90 - effectController.elevation);
+        const theta = THREE.MathUtils.degToRad(effectController.azimuth);
+
+        sun.setFromSphericalCoords(1, phi, theta);
+        sky.material.uniforms['sunPosition'].value.copy(sun);
+
+        renderer.render(scene, camera);
     });
 
-    hdrFolder.close();
+    // Commenting out HDRI-related GUI code
+    // const hdrFolder = gui.addFolder('HDRI');
+    // const hdrOptions = {
+    //     'Day': '001/001.hdr',
+    //     'Dusk': '002/002.hdr',
+    //     'Stormy': '003/003.hdr',
+    //     'Overcast': '004/004.hdr',
+    //     'Pink Sunset': '005/005.hdr',
+    //     'Full Moon': '006/006.hdr',
+    //     'Cloudy Sunset': '007/007.hdr',
+    //     'Another World': '008/008.hdr'
+    // };
 
-    // add an option to mute audio
+    // hdrOptions['Memorial Church'] = 'memorial.hdr';
+    // hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
+    //     hdrPath = value === 'memorial.hdr' ? `/hdr/${value}` : `/hdr/ocean_hdri/${value}`;
+    //     loadHDRI(() => {
+    //         if (value === 'memorial.hdr') return;
+    //         const depthDir = `/hdr/ocean_hdri/${value.split('/')[0]}`;
+    //         console.log("Depth directory:", depthDir);
+    //         loadDepthMapFromDir(depthDir);
+    //     });
+    // });
+
+    // hdrFolder.close();
+
     const audioFolder = gui.addFolder('Audio');
     audioFolder.add({ mute: false }, 'mute').name('Mute').onChange(value => {
         sound.setVolume(value ? 0 : 0.5);
