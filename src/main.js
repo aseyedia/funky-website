@@ -168,7 +168,7 @@ function createText(message, callback) {
             roughness: params.roughness,
             envMapIntensity: 1.0,
             clearcoat: 1.0,
-            clearcoatRoughness: 0.1,
+            clearcoatRoughness: 0,
             ior: 1.5,
             reflectivity: 1.0,
             envMap: scene.environment
@@ -318,9 +318,9 @@ function initGUI() {
     if (textMaterial) {
         const textFolder = gui.addFolder('Text Material');
         textFolder.addColor({ color: 0xffffff }, 'color').onChange(value => textMaterial.color.set(value));
-        textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
-        textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
-        textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
+        // textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
+        // textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
+        // textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
         textFolder.close();
     } else {
         console.error('Text material not found for GUI initialization.');
