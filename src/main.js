@@ -13,6 +13,39 @@ let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 let sound, cube;
 let remove = false;
 
+const cubeParams = {
+    enabled: false,
+    size: 50,
+    posX: 0,
+    posY: -10,
+    posZ: 0,
+    color: 0xffffff,
+    transmission: 1,
+    opacity: 1,
+    metalness: 0,
+    roughness: 0,
+    ior: 1.5,
+    thickness: 100,
+    specularIntensity: 1,
+    specularColor: 0xffffff,
+    envMapIntensity: 1,
+    clearcoat: 0,
+    clearcoatRoughness: 0,
+    reflectivity: 0.5,
+    iridescence: 0,
+    iridescenceIOR: 1.3,
+    iridescenceThicknessRange: [100, 400],
+    sheen: 0,
+    sheenRoughness: 1,
+    sheenColor: 0x000000,
+    dispersion: 0,
+    anisotropy: 0,
+    anisotropyRotation: 0,
+    attenuationColor: 0xffffff,
+    attenuationDistance: Infinity,
+};
+
+
 let currentHDRTexture = null;
 let currentHDRRenderTarget = null;
 
@@ -213,26 +246,18 @@ function cubeToy(remove = false) {
         envMapIntensity: cubeParams.envMapIntensity,
         clearcoat: cubeParams.clearcoat,
         clearcoatRoughness: cubeParams.clearcoatRoughness,
-        clearcoatNormalScale: cubeParams.clearcoatNormalScale,
-        clearcoatNormalMap: cubeParams.clearcoatNormalMap,
-        clearcoatRoughnessMap: cubeParams.clearcoatRoughnessMap,
         reflectivity: cubeParams.reflectivity,
         iridescence: cubeParams.iridescence,
         iridescenceIOR: cubeParams.iridescenceIOR,
         iridescenceThicknessRange: cubeParams.iridescenceThicknessRange,
-        iridescenceThicknessMap: cubeParams.iridescenceThicknessMap,
         sheen: cubeParams.sheen,
         sheenRoughness: cubeParams.sheenRoughness,
         sheenColor: cubeParams.sheenColor,
-        sheenColorMap: cubeParams.sheenColorMap,
-        sheenRoughnessMap: cubeParams.sheenRoughnessMap,
-        transmissionMap: cubeParams.transmissionMap,
-        attenuationColor: cubeParams.attenuationColor,
-        attenuationDistance: cubeParams.attenuationDistance,
         dispersion: cubeParams.dispersion,
         anisotropy: cubeParams.anisotropy,
-        anisotropyMap: cubeParams.anisotropyMap,
-        anisotropyRotation: cubeParams.anisotropyRotation
+        anisotropyRotation: cubeParams.anisotropyRotation,
+        attenuationColor: cubeParams.attenuationColor,
+        attenuationDistance: cubeParams.attenuationDistance
     });
 
     cube = new THREE.Mesh(geometry, material);
@@ -246,6 +271,7 @@ function updateCube() {
     }
     cubeToy();
 }
+
 
 
 
@@ -375,47 +401,6 @@ function animate() {
     }
 }
 
-const cubeParams = {
-    enabled: false,
-    size: 50,
-    posX: 0,
-    posY: -10,
-    posZ: 0,
-    color: 0xffffff,
-    transmission: 1,
-    opacity: 1,
-    metalness: 0,
-    roughness: 0,
-    ior: 1.5,
-    thickness: 100,
-    specularIntensity: 1,
-    specularColor: 0xffffff,
-    envMapIntensity: 1,
-    clearcoat: 0,
-    clearcoatRoughness: 0,
-    clearcoatNormalScale: 1,
-    clearcoatNormalMap: null,
-    clearcoatRoughnessMap: null,
-    reflectivity: 0.5,
-    iridescence: 0,
-    iridescenceIOR: 1.3,
-    iridescenceThicknessRange: [100, 400],
-    iridescenceThicknessMap: null,
-    sheen: 0,
-    sheenRoughness: 1,
-    sheenColor: 0x000000,
-    sheenColorMap: null,
-    sheenRoughnessMap: null,
-    transmissionMap: null,
-    attenuationColor: 0xffffff,
-    attenuationDistance: Infinity,
-    dispersion: 0,
-    anisotropy: 0,
-    anisotropyMap: null,
-    anisotropyRotation: 0,
-    defines: {}
-};
-
 function initGUI() {
     const gui = new GUI();
     const textMaterial = textMeshes[0]?.material;
@@ -464,11 +449,15 @@ function initGUI() {
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
     
-    const cubeFolder = gui.addFolder('Cube Toy');
+    const cubeFolder = gui.addFolder('Cube');
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
         if (value) cubeToy(false);
-        else cubeToy(remove = true);
+        else cubeToy(true);
     });
+    cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'posX', -50, 50).name('Position X').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'posY', -50, 50).name('Position Y').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'posZ', -50, 50).name('Position Z').onChange(updateCube);
     cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(updateCube);
     cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(updateCube);
     cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(updateCube);
@@ -481,27 +470,19 @@ function initGUI() {
     cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('Env Map Intensity').onChange(updateCube);
     cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(updateCube);
     cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'clearcoatNormalScale', 0, 1).name('Clearcoat Normal Scale').onChange(updateCube);
-    // cubeFolder.add(cubeParams, 'clearcoatNormalMap').name('Clearcoat Normal Map').onChange(updateCube);
-    // cubeFolder.add(cubeParams, 'clearcoatRoughnessMap').name('Clearcoat Roughness Map').onChange(updateCube);
     cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(updateCube);
     cubeFolder.add(cubeParams, 'iridescence', 0, 1).name('Iridescence').onChange(updateCube);
     cubeFolder.add(cubeParams, 'iridescenceIOR', 1, 2.333).name('Iridescence IOR').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'iridescenceThicknessRange', [0, 1000]).name('Iridescence Thickness Range').onChange(updateCube);
-    //cubeFolder.add(cubeParams, 'iridescenceThicknessMap').name('Iridescence Thickness Map').onChange(updateCube);
     cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(updateCube);
     cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(updateCube);
     cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(updateCube);
-    //cubeFolder.add(cubeParams, 'sheenColorMap').name('Sheen Color Map').onChange(updateCube);
-    // cubeFolder.add(cubeParams, 'sheenRoughnessMap').name('Sheen Roughness Map').onChange(updateCube);
-    //cubeFolder.add(cubeParams, 'transmissionMap').name('Transmission Map').onChange(updateCube);
     cubeFolder.addColor(cubeParams, 'attenuationColor').name('Attenuation Color').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'attenuationDistance', 0, Infinity).name('Attenuation Distance').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'attenuationDistance', 0, 1000).name('Attenuation Distance').onChange(updateCube);
     cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(updateCube);
     cubeFolder.add(cubeParams, 'anisotropy', 0, 1).name('Anisotropy').onChange(updateCube);
-    //cubeFolder.add(cubeParams, 'anisotropyMap').name('Anisotropy Map').onChange(updateCube);
     cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(updateCube);
     cubeFolder.close();
+    
     
 }
 
