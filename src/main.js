@@ -10,7 +10,8 @@ import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
-let sound;
+let sound, cube;
+let remove = false;
 
 let currentHDRTexture = null;
 let currentHDRRenderTarget = null;
@@ -52,6 +53,7 @@ function init() {
     setupLights();
     loadInitialHDRI(() => {
         setupObjects(() => {
+            // cubeToy();
             initGUI();
             // Hide loading screen
             loadingScreen.style.display = 'none';
@@ -185,6 +187,37 @@ function createText(message, callback) {
         if (callback) callback();
     });
 }
+
+function cubeToy(remove = false) {
+    if (remove && cube) {
+        scene.remove(cube);
+        cube.geometry.dispose();
+        cube.material.dispose();
+        cube = null;
+        return;
+    }
+
+    if (!remove && !cube) {
+        const geometry = new THREE.BoxGeometry(50, 50, 50);
+        const material = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            transmission: 1,
+            opacity: 1,
+            metalness: 0,
+            roughness: 0,
+            ior: 1.5,
+            thickness: 100,
+            specularIntensity: 1,
+            specularColor: 0xffffff,
+            envMapIntensity: 1,
+            dispersion: 0.3, // Increase the dispersion value for heavy dispersion
+        });
+        cube = new THREE.Mesh(geometry, material);
+        cube.position.y -= 10;
+        scene.add(cube);
+    }
+}
+
 
 function createOcean() {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
@@ -359,6 +392,13 @@ function initGUI() {
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
+
+    // add a gui option for "cubeToy" - checkbox to enable, uncheck to disable
+    const cubeFolder = gui.addFolder('Cube Toy');
+    cubeFolder.add({ enabled: false }, 'enabled').name('Enable').onChange(value => {
+        if (value) cubeToy(false);
+        else cubeToy(remove = true);
+    });
 }
 
 // Lazy load non-essential scripts
