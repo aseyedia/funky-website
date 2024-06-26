@@ -1,6 +1,6 @@
 ## Funky Website
 
-I always wanted to make a funky website. You can view it [here](www.artaseyedian.com).
+I always wanted to make a funky website. You can view it [here](https://www.artaseyedian.com).
 
 ## Features
 
