@@ -188,7 +188,7 @@ function createText(message, callback) {
     });
 }
 
-function cubeToy(remove = false) {
+function cubeToy(remove = false, params = {}) {
     if (remove && cube) {
         scene.remove(cube);
         cube.geometry.dispose();
@@ -198,7 +198,7 @@ function cubeToy(remove = false) {
     }
 
     if (!remove && !cube) {
-        const geometry = new THREE.BoxGeometry(50, 50, 50);
+        const geometry = new THREE.BoxGeometry(params.size, params.size, params.size);
         const material = new THREE.MeshPhysicalMaterial({
             color: 0xffffff,
             transmission: 1,
@@ -210,13 +210,14 @@ function cubeToy(remove = false) {
             specularIntensity: 1,
             specularColor: 0xffffff,
             envMapIntensity: 1,
-            dispersion: 0.3, // Increase the dispersion value for heavy dispersion
+            dispersion: params.dispersion,
         });
         cube = new THREE.Mesh(geometry, material);
-        cube.position.y -= 10;
+        cube.position.set(params.posX, params.posY, params.posZ);
         scene.add(cube);
     }
 }
+
 
 
 function createOcean() {
@@ -393,12 +394,52 @@ function initGUI() {
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
 
-    // add a gui option for "cubeToy" - checkbox to enable, uncheck to disable
     const cubeFolder = gui.addFolder('Cube Toy');
-    cubeFolder.add({ enabled: false }, 'enabled').name('Enable').onChange(value => {
-        if (value) cubeToy(false);
-        else cubeToy(remove = true);
+    const cubeParams = {
+        enabled: false,
+        size: 50,
+        posX: 0,
+        posY: -10,
+        posZ: 0,
+        dispersion: 0.3
+    };
+    
+    cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
+        if (value) cubeToy(false, cubeParams);
+        else cubeToy(true);
     });
+
+    cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(value => {
+        if (cube) {
+            cube.scale.set(value / 50, value / 50, value / 50);
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'posX', -100, 100).name('Position X').onChange(value => {
+        if (cube) {
+            cube.position.x = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'posY', -100, 100).name('Position Y').onChange(value => {
+        if (cube) {
+            cube.position.y = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'posZ', -100, 100).name('Position Z').onChange(value => {
+        if (cube) {
+            cube.position.z = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(value => {
+        if (cube) {
+            cube.material.dispersion = value;
+        }
+    });
+
+    cubeFolder.close();
 }
 
 // Lazy load non-essential scripts
