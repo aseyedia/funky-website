@@ -190,40 +190,61 @@ function createText(message, callback) {
 
 
 
-function cubeToy(remove = false, params = {}) {
-    if (remove && cube) {
-        scene.remove(cube);
-        cube.geometry.dispose();
-        cube.material.dispose();
-        cube = null;
+function cubeToy(remove = false) {
+    if (remove) {
+        if (cube) {
+            scene.remove(cube);
+            cube = null;
+        }
         return;
     }
 
-    if (!remove && !cube) {
-        const geometry = new THREE.BoxGeometry(params.size, params.size, params.size);
-        const material = new THREE.MeshPhysicalMaterial({
-            color: params.color,
-            transmission: params.transmission,
-            opacity: params.opacity,
-            metalness: params.metalness,
-            roughness: params.roughness,
-            ior: params.ior,
-            thickness: params.thickness,
-            specularIntensity: params.specularIntensity,
-            specularColor: params.specularColor,
-            envMapIntensity: params.envMapIntensity,
-            clearcoat: params.clearcoat,
-            clearcoatRoughness: params.clearcoatRoughness,
-            reflectivity: params.reflectivity,
-            sheen: params.sheen,
-            sheenColor: params.sheenColor,
-            sheenRoughness: params.sheenRoughness,
-            dispersion: params.dispersion
-        });
-        cube = new THREE.Mesh(geometry, material);
-        cube.position.set(params.posX, params.posY, params.posZ);
-        scene.add(cube);
+    const geometry = new THREE.BoxGeometry(cubeParams.size, cubeParams.size, cubeParams.size);
+    const material = new THREE.MeshPhysicalMaterial({
+        color: cubeParams.color,
+        transmission: cubeParams.transmission,
+        opacity: cubeParams.opacity,
+        metalness: cubeParams.metalness,
+        roughness: cubeParams.roughness,
+        ior: cubeParams.ior,
+        thickness: cubeParams.thickness,
+        specularIntensity: cubeParams.specularIntensity,
+        specularColor: cubeParams.specularColor,
+        envMapIntensity: cubeParams.envMapIntensity,
+        clearcoat: cubeParams.clearcoat,
+        clearcoatRoughness: cubeParams.clearcoatRoughness,
+        clearcoatNormalScale: cubeParams.clearcoatNormalScale,
+        clearcoatNormalMap: cubeParams.clearcoatNormalMap,
+        clearcoatRoughnessMap: cubeParams.clearcoatRoughnessMap,
+        reflectivity: cubeParams.reflectivity,
+        iridescence: cubeParams.iridescence,
+        iridescenceIOR: cubeParams.iridescenceIOR,
+        iridescenceThicknessRange: cubeParams.iridescenceThicknessRange,
+        iridescenceThicknessMap: cubeParams.iridescenceThicknessMap,
+        sheen: cubeParams.sheen,
+        sheenRoughness: cubeParams.sheenRoughness,
+        sheenColor: cubeParams.sheenColor,
+        sheenColorMap: cubeParams.sheenColorMap,
+        sheenRoughnessMap: cubeParams.sheenRoughnessMap,
+        transmissionMap: cubeParams.transmissionMap,
+        attenuationColor: cubeParams.attenuationColor,
+        attenuationDistance: cubeParams.attenuationDistance,
+        dispersion: cubeParams.dispersion,
+        anisotropy: cubeParams.anisotropy,
+        anisotropyMap: cubeParams.anisotropyMap,
+        anisotropyRotation: cubeParams.anisotropyRotation
+    });
+
+    cube = new THREE.Mesh(geometry, material);
+    cube.position.set(cubeParams.posX, cubeParams.posY, cubeParams.posZ);
+    scene.add(cube);
+}
+
+function updateCube() {
+    if (cube) {
+        scene.remove(cube);
     }
+    cubeToy();
 }
 
 
@@ -354,6 +375,47 @@ function animate() {
     }
 }
 
+const cubeParams = {
+    enabled: false,
+    size: 50,
+    posX: 0,
+    posY: -10,
+    posZ: 0,
+    color: 0xffffff,
+    transmission: 1,
+    opacity: 1,
+    metalness: 0,
+    roughness: 0,
+    ior: 1.5,
+    thickness: 100,
+    specularIntensity: 1,
+    specularColor: 0xffffff,
+    envMapIntensity: 1,
+    clearcoat: 0,
+    clearcoatRoughness: 0,
+    clearcoatNormalScale: 1,
+    clearcoatNormalMap: null,
+    clearcoatRoughnessMap: null,
+    reflectivity: 0.5,
+    iridescence: 0,
+    iridescenceIOR: 1.3,
+    iridescenceThicknessRange: [100, 400],
+    iridescenceThicknessMap: null,
+    sheen: 0,
+    sheenRoughness: 1,
+    sheenColor: 0x000000,
+    sheenColorMap: null,
+    sheenRoughnessMap: null,
+    transmissionMap: null,
+    attenuationColor: 0xffffff,
+    attenuationDistance: Infinity,
+    dispersion: 0,
+    anisotropy: 0,
+    anisotropyMap: null,
+    anisotropyRotation: 0,
+    defines: {}
+};
+
 function initGUI() {
     const gui = new GUI();
     const textMaterial = textMeshes[0]?.material;
@@ -401,165 +463,46 @@ function initGUI() {
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
-
-    const cubeParams = {
-        enabled: false,
-        size: 50,
-        posX: 0,
-        posY: -10,
-        posZ: 0,
-        color: 0xffffff,
-        transmission: 1,
-        opacity: 1,
-        metalness: 0,
-        roughness: 0,
-        ior: 1.5,
-        thickness: 100,
-        specularIntensity: 1,
-        specularColor: 0xffffff,
-        envMapIntensity: 1,
-        clearcoat: 0,
-        clearcoatRoughness: 0,
-        reflectivity: 0.5,
-        sheen: 0,
-        sheenColor: 0xffffff,
-        sheenRoughness: 0.5,
-        dispersion: 0.3
-    };
-
+    
     const cubeFolder = gui.addFolder('Cube Toy');
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
-        if (value) cubeToy(false, cubeParams);
-        else cubeToy(true);
+        if (value) cubeToy(false);
+        else cubeToy(remove = true);
     });
-
-    cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(value => {
-        if (cube) {
-            cube.scale.set(value / 50, value / 50, value / 50);
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'posX', -100, 100).name('Position X').onChange(value => {
-        if (cube) {
-            cube.position.x = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'posY', -100, 100).name('Position Y').onChange(value => {
-        if (cube) {
-            cube.position.y = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'posZ', -100, 100).name('Position Z').onChange(value => {
-        if (cube) {
-            cube.position.z = value;
-        }
-    });
-
-    cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(value => {
-        if (cube) {
-            cube.material.color.set(value);
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(value => {
-        if (cube) {
-            cube.material.transmission = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(value => {
-        if (cube) {
-            cube.material.opacity = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(value => {
-        if (cube) {
-            cube.material.metalness = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(value => {
-        if (cube) {
-            cube.material.roughness = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'ior', 1, 2.5).name('IOR').onChange(value => {
-        if (cube) {
-            cube.material.ior = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'thickness', 0, 200).name('Thickness').onChange(value => {
-        if (cube) {
-            cube.material.thickness = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(value => {
-        if (cube) {
-            cube.material.specularIntensity = value;
-        }
-    });
-
-    cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(value => {
-        if (cube) {
-            cube.material.specularColor.set(value);
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('EnvMap Intensity').onChange(value => {
-        if (cube) {
-            cube.material.envMapIntensity = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(value => {
-        if (cube) {
-            cube.material.clearcoat = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(value => {
-        if (cube) {
-            cube.material.clearcoatRoughness = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(value => {
-        if (cube) {
-            cube.material.reflectivity = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(value => {
-        if (cube) {
-            cube.material.sheen = value;
-        }
-    });
-
-    cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(value => {
-        if (cube) {
-            cube.material.sheenColor.set(value);
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(value => {
-        if (cube) {
-            cube.material.sheenRoughness = value;
-        }
-    });
-
-    cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(value => {
-        if (cube) {
-            cube.material.dispersion = value;
-        }
-    });
-
+    cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'ior', 1, 2.333).name('IOR').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'thickness', 0, 100).name('Thickness').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(updateCube);
+    cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('Env Map Intensity').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'clearcoatNormalScale', 0, 1).name('Clearcoat Normal Scale').onChange(updateCube);
+    // cubeFolder.add(cubeParams, 'clearcoatNormalMap').name('Clearcoat Normal Map').onChange(updateCube);
+    // cubeFolder.add(cubeParams, 'clearcoatRoughnessMap').name('Clearcoat Roughness Map').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'iridescence', 0, 1).name('Iridescence').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'iridescenceIOR', 1, 2.333).name('Iridescence IOR').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'iridescenceThicknessRange', [0, 1000]).name('Iridescence Thickness Range').onChange(updateCube);
+    //cubeFolder.add(cubeParams, 'iridescenceThicknessMap').name('Iridescence Thickness Map').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(updateCube);
+    cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(updateCube);
+    //cubeFolder.add(cubeParams, 'sheenColorMap').name('Sheen Color Map').onChange(updateCube);
+    // cubeFolder.add(cubeParams, 'sheenRoughnessMap').name('Sheen Roughness Map').onChange(updateCube);
+    //cubeFolder.add(cubeParams, 'transmissionMap').name('Transmission Map').onChange(updateCube);
+    cubeFolder.addColor(cubeParams, 'attenuationColor').name('Attenuation Color').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'attenuationDistance', 0, Infinity).name('Attenuation Distance').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'anisotropy', 0, 1).name('Anisotropy').onChange(updateCube);
+    //cubeFolder.add(cubeParams, 'anisotropyMap').name('Anisotropy Map').onChange(updateCube);
+    cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(updateCube);
     cubeFolder.close();
+    
 }
 
 // Lazy load non-essential scripts
