@@ -106,7 +106,7 @@ function setupAudio() {
     sound = new THREE.Audio(listener);
 
     const audioLoader = new THREE.AudioLoader();
-    
+
     // Load a sound and set it as the Audio object's buffer
     audioLoader.load('/fresh_and_clean.mp3', function (buffer) {
         sound.setBuffer(buffer);
@@ -183,10 +183,12 @@ function createText(message, callback) {
         console.log("Text mesh created:", textMesh);
         // log performance time
         const endTime = performance.now();
-        console.log("Operation took", endTime - performanceStart, "milliseconds"); 
+        console.log("Operation took", endTime - performanceStart, "milliseconds");
         if (callback) callback();
     });
 }
+
+
 
 function cubeToy(remove = false, params = {}) {
     if (remove && cube) {
@@ -200,17 +202,23 @@ function cubeToy(remove = false, params = {}) {
     if (!remove && !cube) {
         const geometry = new THREE.BoxGeometry(params.size, params.size, params.size);
         const material = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            transmission: 1,
-            opacity: 1,
-            metalness: 0,
-            roughness: 0,
-            ior: 1.5,
-            thickness: 100,
-            specularIntensity: 1,
-            specularColor: 0xffffff,
-            envMapIntensity: 1,
-            dispersion: params.dispersion,
+            color: params.color,
+            transmission: params.transmission,
+            opacity: params.opacity,
+            metalness: params.metalness,
+            roughness: params.roughness,
+            ior: params.ior,
+            thickness: params.thickness,
+            specularIntensity: params.specularIntensity,
+            specularColor: params.specularColor,
+            envMapIntensity: params.envMapIntensity,
+            clearcoat: params.clearcoat,
+            clearcoatRoughness: params.clearcoatRoughness,
+            reflectivity: params.reflectivity,
+            sheen: params.sheen,
+            sheenColor: params.sheenColor,
+            sheenRoughness: params.sheenRoughness,
+            dispersion: params.dispersion
         });
         cube = new THREE.Mesh(geometry, material);
         cube.position.set(params.posX, params.posY, params.posZ);
@@ -328,7 +336,7 @@ function onWindowResize() {
 }
 
 function animate() {
-    
+
 
     requestAnimationFrame(animate);
     controls.update();
@@ -394,16 +402,32 @@ function initGUI() {
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
 
-    const cubeFolder = gui.addFolder('Cube Toy');
     const cubeParams = {
         enabled: false,
         size: 50,
         posX: 0,
         posY: -10,
         posZ: 0,
+        color: 0xffffff,
+        transmission: 1,
+        opacity: 1,
+        metalness: 0,
+        roughness: 0,
+        ior: 1.5,
+        thickness: 100,
+        specularIntensity: 1,
+        specularColor: 0xffffff,
+        envMapIntensity: 1,
+        clearcoat: 0,
+        clearcoatRoughness: 0,
+        reflectivity: 0.5,
+        sheen: 0,
+        sheenColor: 0xffffff,
+        sheenRoughness: 0.5,
         dispersion: 0.3
     };
-    
+
+    const cubeFolder = gui.addFolder('Cube Toy');
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
         if (value) cubeToy(false, cubeParams);
         else cubeToy(true);
@@ -430,6 +454,102 @@ function initGUI() {
     cubeFolder.add(cubeParams, 'posZ', -100, 100).name('Position Z').onChange(value => {
         if (cube) {
             cube.position.z = value;
+        }
+    });
+
+    cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(value => {
+        if (cube) {
+            cube.material.color.set(value);
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(value => {
+        if (cube) {
+            cube.material.transmission = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(value => {
+        if (cube) {
+            cube.material.opacity = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(value => {
+        if (cube) {
+            cube.material.metalness = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(value => {
+        if (cube) {
+            cube.material.roughness = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'ior', 1, 2.5).name('IOR').onChange(value => {
+        if (cube) {
+            cube.material.ior = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'thickness', 0, 200).name('Thickness').onChange(value => {
+        if (cube) {
+            cube.material.thickness = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(value => {
+        if (cube) {
+            cube.material.specularIntensity = value;
+        }
+    });
+
+    cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(value => {
+        if (cube) {
+            cube.material.specularColor.set(value);
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('EnvMap Intensity').onChange(value => {
+        if (cube) {
+            cube.material.envMapIntensity = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(value => {
+        if (cube) {
+            cube.material.clearcoat = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(value => {
+        if (cube) {
+            cube.material.clearcoatRoughness = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(value => {
+        if (cube) {
+            cube.material.reflectivity = value;
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(value => {
+        if (cube) {
+            cube.material.sheen = value;
+        }
+    });
+
+    cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(value => {
+        if (cube) {
+            cube.material.sheenColor.set(value);
+        }
+    });
+
+    cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(value => {
+        if (cube) {
+            cube.material.sheenRoughness = value;
         }
     });
 
