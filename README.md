@@ -1,6 +1,6 @@
 ## Funky Website
 
-I always wanted to make a funky website. I already had the domain name (www.artaseyedian.com), and over the course of making this site, I realized that I wanted this to be my main professional site, the one that I list on my resume. I really just woke up one morning and decided to finally make my funky website.
+I always wanted to make a funky website. You can view it [here](www.artaseyedian.com).
 
 ## Features
 
