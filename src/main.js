@@ -180,8 +180,8 @@ function createText(message, callback) {
         textMeshes.push(textMesh);
         console.log("Text mesh created:", textMesh);
         // log performance time
-        const mesh = performance.now();
-        console.log("Operation took", endTime - startTime, "milliseconds"); 
+        const endTime = performance.now();
+        console.log("Operation took", endTime - performanceStart, "milliseconds"); 
         if (callback) callback();
     });
 }
