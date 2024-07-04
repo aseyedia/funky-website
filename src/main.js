@@ -33,20 +33,6 @@ const params = {
     exposure: 1.0
 };
 
-// Create a loading screen
-const loadingScreen = document.createElement('div');
-loadingScreen.id = 'loadingScreen';
-loadingScreen.style.position = 'absolute';
-loadingScreen.style.width = '100%';
-loadingScreen.style.height = '100%';
-loadingScreen.style.backgroundColor = '#000';
-loadingScreen.style.color = '#fff';
-loadingScreen.style.display = 'flex';
-loadingScreen.style.alignItems = 'center';
-loadingScreen.style.justifyContent = 'center';
-loadingScreen.innerText = 'Loading...';
-document.body.appendChild(loadingScreen);
-
 let isFirstCall = true;
 init();
 animate();
