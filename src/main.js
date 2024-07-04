@@ -13,6 +13,10 @@ let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 let sound, cube;
 let remove = false;
 
+const cloudParams = {
+    enabled: false
+};
+
 const cubeParams = {
     enabled: false,
     size: 50,
@@ -272,6 +276,63 @@ function updateCube() {
     cubeToy();
 }
 
+let clouds = [];
+
+function createClouds() {
+    const geo = new THREE.BufferGeometry();
+
+    const tuft1 = new THREE.SphereGeometry(1.5, 7, 8);
+    tuft1.translate(-2, 0, 0);
+    geo.merge(tuft1);
+
+    const tuft2 = new THREE.SphereGeometry(1.5, 7, 8);
+    tuft2.translate(2, 0, 0);
+    geo.merge(tuft2);
+
+    const tuft3 = new THREE.SphereGeometry(2.0, 7, 8);
+    tuft3.translate(0, 0, 0);
+    geo.merge(tuft3);
+
+    geo.computeFlatVertexNormals();
+
+    jitter(geo, 0.2);
+    chopBottom(geo, -0.5);
+
+    const material = new THREE.MeshLambertMaterial({
+        color: 'white',
+        flatShading: true,
+    });
+
+    const cloud = new THREE.Mesh(geo, material);
+    cloud.position.set(0, 20, 0);
+    clouds.push(cloud);
+    scene.add(cloud);
+
+    const light2 = new THREE.DirectionalLight(0xff5566, 0.7);
+    light2.position.set(-3, -1, 0).normalize();
+    scene.add(light2);
+}
+
+function removeClouds() {
+    clouds.forEach(cloud => scene.remove(cloud));
+    clouds = [];
+}
+
+function jitter(geo, per) {
+    geo.vertices.forEach(v => {
+        v.x += map(Math.random(), 0, 1, -per, per);
+        v.y += map(Math.random(), 0, 1, -per, per);
+        v.z += map(Math.random(), 0, 1, -per, per);
+    });
+}
+
+function chopBottom(geo, bottom) {
+    geo.vertices.forEach(v => v.y = Math.max(v.y, bottom));
+}
+
+function map(val, smin, smax, emin, emax) {
+    return (emax - emin) * (val - smin) / (smax - smin) + emin;
+}
 
 
 
@@ -483,6 +544,12 @@ function initGUI() {
     cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(updateCube);
     cubeFolder.close();
     
+    const cloudFolder = gui.addFolder('Clouds');
+    cloudFolder.add(cloudParams, 'enabled').name('Enable Clouds').onChange(value => {
+        if (value) createClouds();
+        else removeClouds();
+    });
+    cloudFolder.close();
     
 }
 
