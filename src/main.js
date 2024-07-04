@@ -7,30 +7,25 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js'; 
 
+import { loadInitialHDRI, loadHDRI, loadDepthMapFromDir, initializeHDRLoader } from '/root/funky-website/src/components/hdrLoader.js'; // Adjust the path as necessary
+
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
+let camera, scene, renderer, controls, water, pmremGenerator;
 let sound;
 
 let transformControl;
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-let selectedObject = null;
-
 
 const cloudParams = {
     enabled: false
 };
 
-let currentHDRTexture = null;
-let currentHDRRenderTarget = null;
+
 
 const textMeshes = [];
-let hdrPath = '';
 
 const params = {
     roughness: 0.1,
@@ -61,8 +56,6 @@ function init() {
     setupScene();
     setupRenderer();
     setupControls();
-    pmremGenerator = new THREE.PMREMGenerator(renderer);
-    pmremGenerator.compileEquirectangularShader();
     setupLights();
     loadInitialHDRI(() => {
         setupObjects(() => {
@@ -78,6 +71,12 @@ function init() {
     transformControl.addEventListener('dragging-changed', function (event) {
         controls.enabled = !event.value;
     });
+
+
+    pmremGenerator = new THREE.PMREMGenerator(renderer);
+    pmremGenerator.compileEquirectangularShader();
+
+    initializeHDRLoader(scene, pmremGenerator, textMeshes, renderer);
 
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
@@ -285,88 +284,6 @@ function createOcean() {
     });
     water.rotation.x = -Math.PI / 2;
     scene.add(water);
-}
-
-function loadInitialHDRI(callback) {
-    hdrPath = '/hdr/ocean_hdri/001/001.hdr';
-    loadHDRI(() => {
-        const depthDir = '/hdr/ocean_hdri/001';
-        loadDepthMapFromDir(depthDir, callback);
-    });
-}
-
-function loadHDRI(callback) {
-    if (!hdrPath) return;
-
-    console.log("Loading HDRI from path:", hdrPath);
-    new RGBELoader()
-        .setDataType(THREE.HalfFloatType) // Use HalfFloatType
-        .load(hdrPath, (texture) => {
-            console.log("HDRI parsed successfully", texture);
-
-            // Dispose of the previous HDR texture and render target
-            if (currentHDRTexture) {
-                currentHDRTexture.dispose();
-            }
-            if (currentHDRRenderTarget) {
-                currentHDRRenderTarget.texture.dispose();
-                currentHDRRenderTarget.dispose();
-            }
-
-            const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
-            scene.environment = hdrRenderTarget.texture;
-            scene.background = hdrRenderTarget.texture;
-            updateTextEnvMap(hdrRenderTarget.texture);
-
-            // Keep track of the current HDR texture and render target
-            currentHDRTexture = texture;
-            currentHDRRenderTarget = hdrRenderTarget;
-
-            console.log("HDRI environment applied");
-
-            if (callback) callback();
-        }, undefined, (error) => {
-            console.error("Error loading HDRI:", error);
-        });
-}
-
-function loadDepthMap(path, callback) {
-    if (!path) return;
-
-    new THREE.TextureLoader().load(path, (texture) => {
-        depthMap = texture;
-        depthMap.minFilter = THREE.LinearFilter;
-        depthMap.magFilter = THREE.LinearFilter;
-        depthMap.format = THREE.RGBAFormat; // Adjusted format to RGBAFormat
-        console.log("Depth map loaded");
-        if (callback) callback();
-    }, undefined, (error) => {
-        console.error("Error loading depth map:", error);
-    });
-}
-
-function loadDepthMapFromDir(depthDir, callback) {
-    const depthFile = 'depth.jpg';
-    const filePath = `${depthDir}/${depthFile}`;
-    console.log("Checking:", filePath);
-    const req = new XMLHttpRequest();
-    req.open('HEAD', filePath, false);
-    req.send();
-
-    if (req.status !== 404) {
-        console.log("Depth map path:", filePath);
-        loadDepthMap(filePath, callback);
-    } else {
-        console.log("No depth map found for directory:", depthDir);
-        if (callback) callback(); // Ensure callback is called if no depth map is found
-    }
-}
-
-function updateTextEnvMap(envMap) {
-    textMeshes.forEach(mesh => {
-        mesh.material.envMap = envMap;
-        mesh.material.needsUpdate = true;
-    });
 }
 
 function attachTransformControls(cube) {
