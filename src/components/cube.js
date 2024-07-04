@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+// import { objectDirection } from 'three/examples/jsm/nodes/Nodes.js';
 
 let cube;
 
@@ -36,15 +37,24 @@ export const cubeParams = {
 
 export function cubeToy(scene, cubeParams, remove = false) {
     if (remove) {
+        // log removing cube to console
+        console.log('Remove == True');
         if (cube) {
-            scene.remove(cube);
-            cube.geometry.dispose();
-            cube.material.dispose();
-            cube = null;
+            console.log('Setting cube visible to false')
+            cube.visible = false;
+            // scene.remove(cube);
+            // cube.geometry.dispose();
+            // cube.material.dispose();
+            // cube = null;
         }
         return;
     }
-
+    if (cube == true && remove == false) {
+        if (cube.visible === false) {
+            cube.visible = true;
+        }
+        return;
+    }
     const geometry = new THREE.BoxGeometry(cubeParams.size, cubeParams.size, cubeParams.size);
     const material = new THREE.MeshPhysicalMaterial({
         color: cubeParams.color,
