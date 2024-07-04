@@ -24,7 +24,7 @@ export const cubeParams = {
     sheen: 0,
     sheenRoughness: 1,
     sheenColor: 0x000000,
-    dispersion: 0,
+    dispersion: 1,
     anisotropy: 0,
     anisotropyRotation: 0,
     attenuationColor: 0xffffff,

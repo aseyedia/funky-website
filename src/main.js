@@ -360,30 +360,34 @@ function initGUI() {
             detachTransformControls();
         }
     });
-    cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(updateCube);
-    cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'ior', 1, 2.333).name('IOR').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'thickness', 0, 100).name('Thickness').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(updateCube);
-    cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('Env Map Intensity').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'iridescence', 0, 1).name('Iridescence').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'iridescenceIOR', 1, 2.333).name('Iridescence IOR').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(updateCube);
-    cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(updateCube);
-    cubeFolder.addColor(cubeParams, 'attenuationColor').name('Attenuation Color').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'attenuationDistance', 0, 1000).name('Attenuation Distance').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'anisotropy', 0, 1).name('Anisotropy').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(updateCube);
+
+    // The cube settings below don't work. I'm commenting them out for now instead of trying to fix them,
+    // because they're a bit overwhelming anyway.
+
+    cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'ior', 1, 2.333).name('IOR').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'thickness', 0, 100).name('Thickness').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('Env Map Intensity').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'iridescence', 0, 1).name('Iridescence').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'iridescenceIOR', 1, 2.333).name('Iridescence IOR').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.addColor(cubeParams, 'attenuationColor').name('Attenuation Color').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'attenuationDistance', 0, 1000).name('Attenuation Distance').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'anisotropy', 0, 1).name('Anisotropy').onChange(() => updateCube(scene, cubeParams));
+    cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(() => updateCube(scene, cubeParams));
     cubeFolder.close();
 
     const cloudFolder = gui.addFolder('Clouds');
