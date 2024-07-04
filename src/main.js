@@ -5,13 +5,13 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
-import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js'; 
-
+import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js';
 import { loadInitialHDRI, loadHDRI, loadDepthMapFromDir, initializeHDRLoader } from '/root/funky-website/src/components/hdrLoader.js'; // Adjust the path as necessary
-
+// import { createOcean, initializeOceanLoader } from '/root/funky-website/src/components/ocean.js'; // Adjust the path as necessary
+import { Water } from 'three/examples/jsm/objects/Water.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-import { Water } from 'three/examples/jsm/objects/Water.js';
+
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 let camera, scene, renderer, controls, water, pmremGenerator;
@@ -22,8 +22,6 @@ let transformControl;
 const cloudParams = {
     enabled: false
 };
-
-
 
 const textMeshes = [];
 
@@ -104,6 +102,7 @@ function setupControls() {
     controls.maxDistance = 200;
     controls.minDistance = 90;
 }
+
 function setupAudio() {
     const listener = new THREE.AudioListener();
     camera.add(listener);
@@ -349,12 +348,12 @@ function initGUI() {
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
-    
+
     const cubeFolder = gui.addFolder('Cube');
-    cubeParams.enabled = false; 
+    cubeParams.enabled = false;
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
         if (value) {
-            
+
             attachTransformControls(cubeToy(scene, cubeParams));
         } else {
             cubeToy(scene, cubeParams, true);
@@ -386,14 +385,14 @@ function initGUI() {
     cubeFolder.add(cubeParams, 'anisotropy', 0, 1).name('Anisotropy').onChange(updateCube);
     cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(updateCube);
     cubeFolder.close();
-    
+
     const cloudFolder = gui.addFolder('Clouds');
     cloudFolder.add(cloudParams, 'enabled').name('Enable Clouds').onChange(value => {
         if (value) createClouds();
         else removeClouds();
     });
     cloudFolder.close();
-    
+
 }
 
 // Lazy load non-essential scripts

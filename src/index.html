@@ -23,6 +23,7 @@
     <meta name="twitter:description" content="Discover the work and accomplishments of Arta Seyedian.">
     <!-- <meta name="twitter:image" content="https://yourwebsite.com/path/to/image.jpg"> -->
     <meta name="twitter:url" content="https://artaseyedian.com/">
+
     <style>
         body {
             margin: 0;
@@ -80,6 +81,30 @@
     </div>
 
     <script>
+        document.getElementById('info-header').addEventListener('click', function() {
+            var infoContent = document.getElementById('info-content');
+            if (infoContent.style.display === 'none' || infoContent.style.display === '') {
+                infoContent.style.display = 'block';
+            } else {
+                infoContent.style.display = 'none';
+            }
+        });
+
+        document.getElementById('copy-email').addEventListener('click', function() {
+            const email = 'arta.seyedian@gmail.com';
+            navigator.clipboard.writeText(email).then(function() {
+                const emailLink = document.getElementById('copy-email');
+                emailLink.innerText = '✓ Email Address Copied';
+                emailLink.style.color = 'lime';
+                setTimeout(function() {
+                    emailLink.innerText = 'Email';
+                    emailLink.style.color = '#ff0';
+                }, 3000); // Reset the text after 3 seconds
+            }, function(err) {
+                console.error('Could not copy text: ', err);
+            });
+        });
+
         document.addEventListener('DOMContentLoaded', (event) => {
             const loadingScreen = document.getElementById('loadingScreen');
             const loadingBar = document.getElementById('loadingBar');
@@ -104,32 +129,6 @@
 
             loadAssets(() => {
                 loadingScreen.style.display = 'none';
-                init();
-                animate();
-            });
-        });
-
-        document.getElementById('info-header').addEventListener('click', function() {
-            var infoContent = document.getElementById('info-content');
-            if (infoContent.style.display === 'none' || infoContent.style.display === '') {
-                infoContent.style.display = 'block';
-            } else {
-                infoContent.style.display = 'none';
-            }
-        });
-
-        document.getElementById('copy-email').addEventListener('click', function() {
-            const email = 'arta.seyedian@gmail.com';
-            navigator.clipboard.writeText(email).then(function() {
-                const emailLink = document.getElementById('copy-email');
-                emailLink.innerText = '✓ Email Address Copied';
-                emailLink.style.color = 'lime';
-                setTimeout(function() {
-                    emailLink.innerText = 'Email';
-                    emailLink.style.color = '#ff0';
-                }, 3000); // Reset the text after 3 seconds
-            }, function(err) {
-                console.error('Could not copy text: ', err);
             });
         });
     </script>
