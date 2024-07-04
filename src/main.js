@@ -3,6 +3,9 @@ console.log('Script start time:', performanceStart);
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+
+import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js'; 
+
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
@@ -10,45 +13,11 @@ import { Water } from 'three/examples/jsm/objects/Water.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
-let sound, cube;
-let remove = false;
+let sound;
 
 const cloudParams = {
     enabled: false
 };
-
-const cubeParams = {
-    enabled: false,
-    size: 50,
-    posX: 0,
-    posY: -10,
-    posZ: 0,
-    color: 0xffffff,
-    transmission: 1,
-    opacity: 1,
-    metalness: 0,
-    roughness: 0,
-    ior: 1.5,
-    thickness: 100,
-    specularIntensity: 1,
-    specularColor: 0xffffff,
-    envMapIntensity: 1,
-    clearcoat: 0,
-    clearcoatRoughness: 0,
-    reflectivity: 0.5,
-    iridescence: 0,
-    iridescenceIOR: 1.3,
-    iridescenceThicknessRange: [100, 400],
-    sheen: 0,
-    sheenRoughness: 1,
-    sheenColor: 0x000000,
-    dispersion: 0,
-    anisotropy: 0,
-    anisotropyRotation: 0,
-    attenuationColor: 0xffffff,
-    attenuationDistance: Infinity,
-};
-
 
 let currentHDRTexture = null;
 let currentHDRRenderTarget = null;
@@ -223,57 +192,6 @@ function createText(message, callback) {
         console.log("Operation took", endTime - performanceStart, "milliseconds");
         if (callback) callback();
     });
-}
-
-
-
-function cubeToy(remove = false) {
-    if (remove) {
-        if (cube) {
-            scene.remove(cube);
-            cube = null;
-        }
-        return;
-    }
-
-    const geometry = new THREE.BoxGeometry(cubeParams.size, cubeParams.size, cubeParams.size);
-    const material = new THREE.MeshPhysicalMaterial({
-        color: cubeParams.color,
-        transmission: cubeParams.transmission,
-        opacity: cubeParams.opacity,
-        metalness: cubeParams.metalness,
-        roughness: cubeParams.roughness,
-        ior: cubeParams.ior,
-        thickness: cubeParams.thickness,
-        specularIntensity: cubeParams.specularIntensity,
-        specularColor: cubeParams.specularColor,
-        envMapIntensity: cubeParams.envMapIntensity,
-        clearcoat: cubeParams.clearcoat,
-        clearcoatRoughness: cubeParams.clearcoatRoughness,
-        reflectivity: cubeParams.reflectivity,
-        iridescence: cubeParams.iridescence,
-        iridescenceIOR: cubeParams.iridescenceIOR,
-        iridescenceThicknessRange: cubeParams.iridescenceThicknessRange,
-        sheen: cubeParams.sheen,
-        sheenRoughness: cubeParams.sheenRoughness,
-        sheenColor: cubeParams.sheenColor,
-        dispersion: cubeParams.dispersion,
-        anisotropy: cubeParams.anisotropy,
-        anisotropyRotation: cubeParams.anisotropyRotation,
-        attenuationColor: cubeParams.attenuationColor,
-        attenuationDistance: cubeParams.attenuationDistance
-    });
-
-    cube = new THREE.Mesh(geometry, material);
-    cube.position.set(cubeParams.posX, cubeParams.posY, cubeParams.posZ);
-    scene.add(cube);
-}
-
-function updateCube() {
-    if (cube) {
-        scene.remove(cube);
-    }
-    cubeToy();
 }
 
 let clouds = [];
@@ -511,9 +429,13 @@ function initGUI() {
     isMobile() ? gui.close() : gui.open();
     
     const cubeFolder = gui.addFolder('Cube');
+    cubeParams.enabled = false; 
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
-        if (value) cubeToy(false);
-        else cubeToy(true);
+        if (value) {
+            cubeToy(scene, cubeParams);
+        } else {
+            cubeToy(scene, cubeParams, true);
+        }
     });
     cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(updateCube);
     cubeFolder.add(cubeParams, 'posX', -50, 50).name('Position X').onChange(updateCube);
