@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
 
 let cube;
 
@@ -76,6 +79,8 @@ export function cubeToy(scene, cubeParams, remove = false) {
     cube = new THREE.Mesh(geometry, material);
     cube.position.set(cubeParams.posX, cubeParams.posY, cubeParams.posZ);
     scene.add(cube);
+
+    return cube;
 };
 
 export function updateCube(scene, cubeParams) {

@@ -2,7 +2,8 @@ const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
 
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js'; 
 
@@ -14,6 +15,12 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
 let camera, scene, renderer, controls, pmremGenerator, water, depthMap;
 let sound;
+
+let transformControl;
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+let selectedObject = null;
+
 
 const cloudParams = {
     enabled: false
@@ -65,6 +72,13 @@ function init() {
             loadingScreen.style.display = 'none';
         });
     });
+    transformControl = new TransformControls(camera, renderer.domElement);
+    scene.add(transformControl);
+
+    transformControl.addEventListener('dragging-changed', function (event) {
+        controls.enabled = !event.value;
+    });
+
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
     const loadingScreenTime = performance.now();
@@ -355,6 +369,16 @@ function updateTextEnvMap(envMap) {
     });
 }
 
+function attachTransformControls(cube) {
+    if (cube) {
+        transformControl.attach(cube);
+    }
+}
+
+function detachTransformControls() {
+    transformControl.detach();
+}
+
 function onWindowResize() {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
@@ -362,8 +386,6 @@ function onWindowResize() {
 }
 
 function animate() {
-
-
     requestAnimationFrame(animate);
     controls.update();
     if (water && water.material.uniforms['time']) {
@@ -386,9 +408,6 @@ function initGUI() {
     if (textMaterial) {
         const textFolder = gui.addFolder('Text Material');
         textFolder.addColor({ color: 0xffffff }, 'color').onChange(value => textMaterial.color.set(value));
-        // textFolder.add(params, 'metalness', 0, 1).onChange(value => textMaterial.metalness = value).setValue(1.0);
-        // textFolder.add(params, 'roughness', 0, 1).onChange(value => textMaterial.roughness = value).setValue(0.1);
-        // textFolder.add(params, 'exposure', 0, 2).onChange(value => renderer.toneMappingExposure = value).setValue(1.0);
         textFolder.close();
     } else {
         console.error('Text material not found for GUI initialization.');
@@ -432,15 +451,14 @@ function initGUI() {
     cubeParams.enabled = false; 
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
         if (value) {
-            cubeToy(scene, cubeParams);
+            
+            attachTransformControls(cubeToy(scene, cubeParams));
         } else {
             cubeToy(scene, cubeParams, true);
+            detachTransformControls();
         }
     });
     cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'posX', -50, 50).name('Position X').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'posY', -50, 50).name('Position Y').onChange(updateCube);
-    cubeFolder.add(cubeParams, 'posZ', -50, 50).name('Position Z').onChange(updateCube);
     cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(updateCube);
     cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(updateCube);
     cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(updateCube);
