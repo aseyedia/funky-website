@@ -9,6 +9,10 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
+let previousTime = 0;
+const desiredFPS = 60;
+const frameDuration = 1000 / desiredFPS;
+
 // Initialize stats
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -225,22 +229,27 @@ function onWindowResize() {
     renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
-function animate() {
-    stats.begin(); // Start stats recording
-
+function animate(currentTime) {
     requestAnimationFrame(animate);
-    controls.update();
-    if (water && water.material.uniforms['time']) {
-        water.material.uniforms['time'].value += 1.0 / 60.0;
-    }
-    renderer.render(scene, camera);
 
-    stats.end(); // End stats recording
+    const deltaTime = currentTime - previousTime;
+    
+    if (deltaTime >= frameDuration) {
+        // Start stats recording
+        stats.begin();
 
-    if (isFirstCall) {
-        const performanceAnimate = performance.now();
-        console.log('Time to animate():', performanceAnimate - performanceStart);
-        isFirstCall = false;
+        controls.update();
+
+        if (water && water.material.uniforms['time']) {
+            water.material.uniforms['time'].value += 1.0 / desiredFPS;
+        }
+
+        renderer.render(scene, camera);
+
+        // End stats recording
+        stats.end();
+
+        previousTime = currentTime - (deltaTime % frameDuration);
     }
 }
 
