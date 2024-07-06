@@ -7,7 +7,7 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
-import { Stats } from 'three/examples/jsm/libs/stats.module.js';
+import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 // Add this near the top of your script to initialize stats
 const stats = new Stats();
