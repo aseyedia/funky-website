@@ -62,23 +62,23 @@
 <body>
     <div id="container"></div>
     <div id="info-container">
-        <div id="info-header">Info</div>
+        <div id="info-header">About</div>
         <div id="info-content">
             Thank you so much for coming to my website!
             <br>It really means a lot to me 😀<br/>
-            Have a look around, and feel free to get in touch!<br/>
+            Have a look around, and feel free to get in touch!
+            <br><div style="text-align: left;">Arta Seyedian</div>
             <a href="https://www.linkedin.com/in/artaseyedian" target="_blank" rel="noopener">LinkedIn</a> |
             <span class="copy-email" id="copy-email">Email</span> |
             <a href="https://github.com/aseyedia" target="_blank" rel="noopener">GitHub</a>
         </div>
     </div>
     <div id="tips-container">
-        <div id="tips-header">Tips</div>
+        <div id="tips-header">Info</div>
         <div id="tips-content">
-            Hold 'W', 'E' or 'R' with the cube enabled to move, scale or rotate.<br/>
+            - Hold 'W', 'E' or 'R' with the cube enabled to move, scale or rotate.<br/>
         </div>
     </div>    
-<body>
     <div id="loadingScreen">
         <div id="loadingText">Loading...</div>
         <div id="loadingBarContainer">
@@ -87,6 +87,13 @@
     </div>
 
     <script>
+        function updateTipsPosition() {
+            const infoContainer = document.getElementById('info-container');
+            const tipsContainer = document.getElementById('tips-container');
+            const infoContainerHeight = infoContainer.offsetHeight;
+            tipsContainer.style.top = `${infoContainerHeight + 20}px`; // 20px for spacing
+        }
+
         document.getElementById('info-header').addEventListener('click', function() {
             var infoContent = document.getElementById('info-content');
             if (infoContent.style.display === 'none' || infoContent.style.display === '') {
@@ -94,6 +101,7 @@
             } else {
                 infoContent.style.display = 'none';
             }
+            updateTipsPosition();
         });
 
         document.getElementById('tips-header').addEventListener('click', function() {
@@ -145,6 +153,8 @@
             loadAssets(() => {
                 loadingScreen.style.display = 'none';
             });
+
+            updateTipsPosition();
         });
     </script>
 
