@@ -18,7 +18,6 @@ let depthMap;
 let currentHDRTexture = null;
 let currentHDRRenderTarget = null;
 
-const cloudParams = { enabled: false };
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
 let isFirstCall = true;
@@ -36,7 +35,6 @@ function init() {
 
     loadInitialHDRI(() => {
         setupObjects(() => {
-            createClouds();
             initGUI();
             document.getElementById('loadingScreen').style.display = 'none';
         });
@@ -177,83 +175,6 @@ function createText(message, callback) {
         console.log("Operation took", endTime - performanceStart, "milliseconds");
         if (callback) callback();
     });
-}
-
-let clouds = [];
-
-function createClouds() {
-    const geo = new THREE.BufferGeometry();
-
-    const tuft1 = new THREE.SphereGeometry(1.5, 7, 8);
-    tuft1.translate(-2, 0, 0);
-
-    const tuft2 = new THREE.SphereGeometry(1.5, 7, 8);
-    tuft2.translate(2, 0, 0);
-
-    const tuft3 = new THREE.SphereGeometry(2.0, 7, 8);
-    tuft3.translate(0, 0, 0);
-
-    const combinedVertices = new Float32Array([
-        ...tuft1.attributes.position.array,
-        ...tuft2.attributes.position.array,
-        ...tuft3.attributes.position.array
-    ]);
-
-    geo.setAttribute('position', new THREE.BufferAttribute(combinedVertices, 3));
-    geo.computeVertexNormals();
-
-    jitter(geo, 0.2);
-    chopBottom(geo, -0.5);
-
-    const material = new THREE.MeshLambertMaterial({
-        color: 'white',
-        flatShading: true,
-    });
-
-    const cloud = new THREE.Mesh(geo, material);
-    cloud.position.set(0, 20, 0);
-    scene.add(cloud);
-
-    const light2 = new THREE.DirectionalLight(0xff5566, 0.7);
-    light2.position.set(-3, -1, 0).normalize();
-    scene.add(light2);
-}
-
-function jitter(geo, per) {
-    const position = geo.attributes.position;
-    const count = position.count;
-
-    for (let i = 0; i < count; i++) {
-        const x = position.getX(i);
-        const y = position.getY(i);
-        const z = position.getZ(i);
-
-        position.setXYZ(
-            i,
-            x + (Math.random() * per * 2 - per),
-            y + (Math.random() * per * 2 - per),
-            z + (Math.random() * per * 2 - per)
-        );
-    }
-    position.needsUpdate = true;
-}
-
-function chopBottom(geo, bottom) {
-    const position = geo.attributes.position;
-    const count = position.count;
-
-    for (let i = 0; i < count; i++) {
-        const y = position.getY(i);
-        if (y < bottom) {
-            position.setY(i, bottom);
-        }
-    }
-    position.needsUpdate = true;
-}
-
-function removeClouds() {
-    clouds.forEach(cloud => scene.remove(cloud));
-    clouds = [];
 }
 
 function createOcean() {
@@ -507,12 +428,6 @@ function initGUI() {
 
     cubeFolder.close();
 
-    const cloudFolder = gui.addFolder('Clouds');
-    cloudFolder.add(cloudParams, 'enabled').name('Enable Clouds').onChange(value => {
-        if (value) createClouds();
-        else removeClouds();
-    });
-    cloudFolder.close();
 }
 
 function transformKey(event) {
