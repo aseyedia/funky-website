@@ -9,7 +9,7 @@ import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
-// Add this near the top of your script to initialize stats
+// Initialize stats
 const stats = new Stats();
 stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
 document.body.appendChild(stats.dom);
@@ -226,12 +226,17 @@ function onWindowResize() {
 }
 
 function animate() {
+    stats.begin(); // Start stats recording
+
     requestAnimationFrame(animate);
     controls.update();
     if (water && water.material.uniforms['time']) {
         water.material.uniforms['time'].value += 1.0 / 60.0;
     }
     renderer.render(scene, camera);
+
+    stats.end(); // End stats recording
+
     if (isFirstCall) {
         const performanceAnimate = performance.now();
         console.log('Time to animate():', performanceAnimate - performanceStart);
@@ -340,7 +345,6 @@ function addSettings(cubeFolder) {
         cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(() => updateCubeAndTransformControls());
         cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(() => updateCubeAndTransformControls());
         cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(() => updateCubeAndTransformControls());
-        // add one for reflection
         cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(() => updateCubeAndTransformControls());
         cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(() => updateCubeAndTransformControls());
         cubeFolder.add(cubeParams, 'ior', 1, 2.333).name('IOR').onChange(() => updateCubeAndTransformControls());
