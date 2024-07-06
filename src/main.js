@@ -55,7 +55,7 @@ function init() {
     console.log('Total Loading time:', loadingScreenTime - performanceStart);
 
     // Add key event listeners
-    window.addEventListener('keydown', onKeyDown, false);
+    window.addEventListener('keydown', transformKey, false);
     window.addEventListener('keyup', onKeyUp, false);
 }
 
@@ -273,10 +273,12 @@ function createOcean() {
     scene.add(water);
 }
 
-function attachTransformControls(cube) {
+function attachTransformControls(cube, eventKey = null) {
     if (cube && cube.parent === scene) {
+        const mode = eventKey === 'w' ? 'translate' : eventKey === 'e' ? 'scale' : 'rotate';
+        transformControl.setMode(mode);
         transformControl.attach(cube);
-        console.log("TransformControls attached to cube.");
+        console.log(`TransformControls attached to cube with mode: ${mode}`);
     } else {
         console.warn("Attempted to attach TransformControls to an object not in the scene", cube);
     }
@@ -505,15 +507,14 @@ function initGUI() {
     cloudFolder.close();
 }
 
-function onKeyDown(event) {
-    console.log("Key is Pressed:", event.key)
-    if (event.key === 'w' && currentCube) {
-        attachTransformControls(currentCube);
+function transformKey(event) {
+    if (currentCube && ['w', 'e', 'r'].includes(event.key)) {
+        attachTransformControls(currentCube, event.key);
     }
 }
 
 function onKeyUp(event) {
-    if (event.key === 'w') {
+    if (['w', 'e', 'r'].includes(event.key)) {
         detachTransformControls();
     }
 }
