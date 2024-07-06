@@ -43,6 +43,8 @@ function init() {
     });
 
     transformControl = new TransformControls(camera, renderer.domElement);
+    transformControl.rotationSnap = THREE.MathUtils.degToRad(15); // 15 degrees in radians
+    transformControl.translationSnap = 1; // 1 unit
     scene.add(transformControl);
     transformControl.addEventListener('dragging-changed', event => controls.enabled = !event.value);
 
