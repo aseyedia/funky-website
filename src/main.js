@@ -7,6 +7,12 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
+import { Stats } from 'three/examples/jsm/libs/stats.module.js';
+
+// Add this near the top of your script to initialize stats
+const stats = new Stats();
+stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+document.body.appendChild(stats.dom);
 
 const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
@@ -189,6 +195,7 @@ function createOcean() {
         sunDirection: new THREE.Vector3(),
         sunColor: 0xffffff,
         waterColor: 0x001e0f,
+        distortion: 0.1,
         distortionScale: 3.7,
         fog: scene.fog !== undefined
     });
