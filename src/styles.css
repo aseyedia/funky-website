@@ -47,6 +47,33 @@ button {
     text-align: center;
 }
 
+#tips-container {
+    position: absolute;
+    top: 180px; /* Adjust this value based on the height of your info-container */
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    overflow: hidden;
+    z-index: 1;
+    pointer-events: auto;
+}
+
+#tips-header {
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    cursor: pointer;
+    color: #ff0;
+    text-align: center;
+}
+
+#tips-content {
+    padding: 10px;
+    display: none; /* Hide by default */
+    text-align: center;
+}
+
+
+
 .copy-email {
     color: #ff0;
     cursor: pointer;

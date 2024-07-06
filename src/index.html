@@ -72,7 +72,13 @@
             <a href="https://github.com/aseyedia" target="_blank" rel="noopener">GitHub</a>
         </div>
     </div>
-
+    <div id="tips-container">
+        <div id="tips-header">Tips</div>
+        <div id="tips-content">
+            Hold 'W', 'E' or 'R' with the cube enabled to move, scale or rotate.<br/>
+        </div>
+    </div>    
+<body>
     <div id="loadingScreen">
         <div id="loadingText">Loading...</div>
         <div id="loadingBarContainer">
@@ -87,6 +93,15 @@
                 infoContent.style.display = 'block';
             } else {
                 infoContent.style.display = 'none';
+            }
+        });
+
+        document.getElementById('tips-header').addEventListener('click', function() {
+            var tipsContent = document.getElementById('tips-content');
+            if (tipsContent.style.display === 'none' || tipsContent.style.display === '') {
+                tipsContent.style.display = 'block';
+            } else {
+                tipsContent.style.display = 'none';
             }
         });
 
