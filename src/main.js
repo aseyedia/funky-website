@@ -2,11 +2,11 @@ import * as THREE from 'three';
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
+import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 
 const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
