@@ -420,7 +420,7 @@ function addSettings(cubeFolder) {
 function updateCubeAndTransformControls() {
     if (currentCube) {
         updateCube(scene, cubeParams);
-        attachTransformControls(currentCube);
+        // attachTransformControls(currentCube);
     }
 }
 

@@ -91,12 +91,31 @@ export function cubeToy(scene, cubeParams, remove = false) {
 };
 
 export function updateCube(scene, cubeParams) {
-    if (cube) {
-        scene.remove(cube);
-        cube.geometry.dispose();
-        cube.material.dispose();
+    if (!cube) {
+        // If cube doesn't exist, create it.
+        cube = cubeToy(scene, cubeParams);
+    } else {
+        // Update cube material properties directly.
+        cube.material.color.set(cubeParams.color);
+        cube.material.transmission = cubeParams.transmission;
+        cube.material.opacity = cubeParams.opacity;
+        cube.material.metalness = cubeParams.metalness;
+        cube.material.roughness = cubeParams.roughness;
+        cube.material.ior = cubeParams.ior;
+        cube.material.thickness = cubeParams.thickness;
+        cube.material.specularIntensity = cubeParams.specularIntensity;
+        cube.material.specularColor.set(cubeParams.specularColor);
+        // Add or update any other properties as needed.
+        
+        // Update cube geometry if size has changed.
+        if (cube.geometry.parameters.width !== cubeParams.size) {
+            cube.geometry.dispose(); // Dispose of the old geometry.
+            cube.geometry = new THREE.BoxGeometry(cubeParams.size, cubeParams.size, cubeParams.size);
+        }
+        
+        // Optionally, update cube position.
+        // cube.position.set(cubeParams.posX, cubeParams.posY, cubeParams.posZ);
     }
-    cubeToy(scene, cubeParams);
 }
 
 // export { cubeToy, updateCube, cubeParams };
