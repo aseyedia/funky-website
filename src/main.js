@@ -488,12 +488,16 @@ function initGUI() {
             if (!currentCube) {
                 currentCube = cubeToy(scene, cubeParams);
                 scene.add(currentCube);
+            } else if (currentCube) {
+                console.log(currentCube, "already exists in scene");
+                currentCube.visible = true;
+                scene.add(currentCube);
             }
-            // attachTransformControls(currentCube);
             addSettings(cubeFolder);
         } else {
             scene.remove(currentCube);
-            currentCube = null;
+            console.log(currentCube, "removed from scene")
+            currentCube.visible = false;
             detachTransformControls();
             removeSettings(cubeFolder);
         }
