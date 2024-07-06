@@ -22,6 +22,7 @@ const cloudParams = { enabled: false };
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
 let isFirstCall = true;
+let currentCube = null;
 
 init();
 animate();
@@ -52,6 +53,10 @@ function init() {
     console.log("Initial setup complete");
     const loadingScreenTime = performance.now();
     console.log('Total Loading time:', loadingScreenTime - performanceStart);
+
+    // Add key event listeners
+    window.addEventListener('keydown', onKeyDown, false);
+    window.addEventListener('keyup', onKeyUp, false);
 }
 
 function isMobile() {
@@ -269,13 +274,17 @@ function createOcean() {
 }
 
 function attachTransformControls(cube) {
-    if (cube) {
+    if (cube && cube.parent === scene) {
         transformControl.attach(cube);
+        console.log("TransformControls attached to cube.");
+    } else {
+        console.warn("Attempted to attach TransformControls to an object not in the scene", cube);
     }
 }
 
 function detachTransformControls() {
     transformControl.detach();
+    console.log("TransformControls detached.");
 }
 
 function onWindowResize() {
@@ -387,51 +396,37 @@ function updateTextEnvMap(envMap) {
 }
 
 function addSettings(cubeFolder) {
-
-    // if cubefolder has more than one controller, show them
     if (cubeFolder.controllers.length > 1) {
-        // log showing old controllers
         console.log("Showing old controllers");
         cubeFolder.controllers.forEach(controller => {
             controller.show(true);
         });
     } else {
-        // log adding cube folder options
         console.log("Adding cube folder options");
-        cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'ior', 1, 2.333).name('IOR').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'thickness', 0, 100).name('Thickness').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'envMapIntensity', 0, 10).name('Env Map Intensity').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'clearcoat', 0, 1).name('Clearcoat').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'clearcoatRoughness', 0, 1).name('Clearcoat Roughness').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'reflectivity', 0, 1).name('Reflectivity').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'iridescence', 0, 1).name('Iridescence').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'iridescenceIOR', 1, 2.333).name('Iridescence IOR').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'sheen', 0, 1).name('Sheen').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'sheenRoughness', 0, 1).name('Sheen Roughness').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.addColor(cubeParams, 'sheenColor').name('Sheen Color').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.addColor(cubeParams, 'attenuationColor').name('Attenuation Color').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'attenuationDistance', 0, 1000).name('Attenuation Distance').onChange(() => updateCube(scene, cubeParams));
-        cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'anisotropy', 0, 1).name('Anisotropy').onChange(() => updateCube(scene, cubeParams));
-        // cubeFolder.add(cubeParams, 'anisotropyRotation', 0, Math.PI * 2).name('Anisotropy Rotation').onChange(() => updateCube(scene, cubeParams));
+        cubeFolder.add(cubeParams, 'size', 10, 100).name('Size').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.addColor(cubeParams, 'color').name('Color').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'transmission', 0, 1).name('Transmission').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'opacity', 0, 1).name('Opacity').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'metalness', 0, 1).name('Metalness').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'roughness', 0, 1).name('Roughness').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'ior', 1, 2.333).name('IOR').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'thickness', 0, 100).name('Thickness').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'specularIntensity', 0, 1).name('Specular Intensity').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.addColor(cubeParams, 'specularColor').name('Specular Color').onChange(() => updateCubeAndTransformControls());
+        cubeFolder.add(cubeParams, 'dispersion', 0, 1).name('Dispersion').onChange(() => updateCubeAndTransformControls());
+    }
+}
+
+function updateCubeAndTransformControls() {
+    if (currentCube) {
+        updateCube(scene, cubeParams);
+        attachTransformControls(currentCube);
     }
 }
 
 function removeSettings(cubeFolder) {
-    // Log all controllers before hiding them
     console.log("Controllers before hiding:", cubeFolder.controllers);
-
-    // Iterate over the controllers and hide them, starting from the second one
     const controllersToRemove = cubeFolder.controllers.slice(1);
-    // Log controllersToRemove
     console.log("Controllers to be hidden:", controllersToRemove);
     controllersToRemove.forEach(controller => {
         controller.show(false)
@@ -486,10 +481,15 @@ function initGUI() {
     cubeParams.enabled = false;
     cubeFolder.add(cubeParams, 'enabled').name('Enable').onChange(value => {
         if (value) {
-            attachTransformControls(cubeToy(scene, cubeParams));
+            if (!currentCube) {
+                currentCube = cubeToy(scene, cubeParams);
+                scene.add(currentCube);
+            }
+            // attachTransformControls(currentCube);
             addSettings(cubeFolder);
         } else {
-            cubeToy(scene, cubeParams, true);
+            scene.remove(currentCube);
+            currentCube = null;
             detachTransformControls();
             removeSettings(cubeFolder);
         }
@@ -503,6 +503,19 @@ function initGUI() {
         else removeClouds();
     });
     cloudFolder.close();
+}
+
+function onKeyDown(event) {
+    console.log("Key is Pressed:", event.key)
+    if (event.key === 'w' && currentCube) {
+        attachTransformControls(currentCube);
+    }
+}
+
+function onKeyUp(event) {
+    if (event.key === 'w') {
+        detachTransformControls();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
