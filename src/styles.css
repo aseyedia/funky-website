@@ -69,6 +69,8 @@ button {
     padding: 10px;
     display: none; /* Hide by default */
     text-align: center;
+    white-space: normal; /* Ensure text wrapping */
+
 }
 
 .copy-email {
