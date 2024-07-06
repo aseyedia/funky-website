@@ -105,6 +105,7 @@ export function updateCube(scene, cubeParams) {
         cube.material.thickness = cubeParams.thickness;
         cube.material.specularIntensity = cubeParams.specularIntensity;
         cube.material.specularColor.set(cubeParams.specularColor);
+        cube.material.reflectivity = cubeParams.reflectivity;
         // Add or update any other properties as needed.
         
         // Update cube geometry if size has changed.
