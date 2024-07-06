@@ -1,37 +1,28 @@
-const performanceStart = performance.now();
-console.log('Script start time:', performanceStart);
-
 import * as THREE from 'three';
+import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
-
 import { cubeToy, updateCube, cubeParams } from '/root/funky-website/src/components/cube.js';
-import { loadInitialHDRI, loadHDRI, loadDepthMapFromDir, initializeHDRLoader } from '/root/funky-website/src/components/hdrLoader.js'; // Adjust the path as necessary
-// import { createOcean, initializeOceanLoader } from '/root/funky-website/src/components/ocean.js'; // Adjust the path as necessary
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
-
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 
-let camera, scene, renderer, controls, water, pmremGenerator;
-let sound;
+const performanceStart = performance.now();
+console.log('Script start time:', performanceStart);
 
-let transformControl;
+let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water;
+let hdrPath = '/hdr/ocean_hdri/001/001.hdr';
+let depthDir = '/hdr/ocean_hdri/001';
+let depthMap;
+let currentHDRTexture = null;
+let currentHDRRenderTarget = null;
 
-const cloudParams = {
-    enabled: false
-};
-
+const cloudParams = { enabled: false };
 const textMeshes = [];
-
-const params = {
-    roughness: 0.1,
-    metalness: 1.0,
-    exposure: 1.0
-};
-
+const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
 let isFirstCall = true;
+
 init();
 animate();
 
@@ -41,32 +32,26 @@ function init() {
     setupRenderer();
     setupControls();
     setupLights();
+
     loadInitialHDRI(() => {
         setupObjects(() => {
-            // cubeToy();
+            createClouds();
             initGUI();
-            // Hide loading screen
-            loadingScreen.style.display = 'none';
+            document.getElementById('loadingScreen').style.display = 'none';
         });
     });
+
     transformControl = new TransformControls(camera, renderer.domElement);
     scene.add(transformControl);
-
-    transformControl.addEventListener('dragging-changed', function (event) {
-        controls.enabled = !event.value;
-    });
-
+    transformControl.addEventListener('dragging-changed', event => controls.enabled = !event.value);
 
     pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
-
-    initializeHDRLoader(scene, pmremGenerator, textMeshes, renderer);
 
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
     const loadingScreenTime = performance.now();
     console.log('Total Loading time:', loadingScreenTime - performanceStart);
-
 }
 
 function isMobile() {
@@ -75,7 +60,7 @@ function isMobile() {
 }
 
 function setupCamera() {
-    const fov = isMobile() ? 80 : 40; // Increase FOV for mobile devices
+    const fov = isMobile() ? 80 : 40;
     camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 1000);
     camera.position.set(0, 30, 100);
 }
@@ -103,20 +88,27 @@ function setupControls() {
     controls.minDistance = 90;
 }
 
+function setupLights() {
+    const ambLight = new THREE.AmbientLight(0xffffff, 1.5);
+    scene.add(ambLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    dirLight.position.set(5, 10, 7.5);
+    dirLight.castShadow = true;
+    scene.add(dirLight);
+}
+
 function setupAudio() {
     const listener = new THREE.AudioListener();
     camera.add(listener);
 
     sound = new THREE.Audio(listener);
-
     const audioLoader = new THREE.AudioLoader();
 
-    // Load a sound and set it as the Audio object's buffer
-    audioLoader.load('/fresh_and_clean.mp3', function (buffer) {
+    audioLoader.load('/fresh_and_clean.mp3', buffer => {
         sound.setBuffer(buffer);
         sound.setLoop(true);
         sound.setVolume(0.5);
-        // Play the sound if the context is already resumed
         if (listener.context.state === 'suspended') {
             document.addEventListener('click', resumeAudioContext);
             document.addEventListener('keydown', resumeAudioContext);
@@ -134,17 +126,6 @@ function setupAudio() {
     }
 }
 
-
-function setupLights() {
-    const ambLight = new THREE.AmbientLight(0xffffff, 1.5); // Increased intensity
-    scene.add(ambLight);
-
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5); // Increased intensity
-    dirLight.position.set(5, 10, 7.5);
-    dirLight.castShadow = true;
-    scene.add(dirLight);
-}
-
 function setupObjects(callback) {
     createText('Arta Seyedian', () => {
         createOcean();
@@ -154,7 +135,7 @@ function setupObjects(callback) {
 
 function createText(message, callback) {
     const loader = new FontLoader();
-    loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', (font) => {
+    loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', font => {
         const textGeometry = new TextGeometry(message, {
             font: font,
             size: 10,
@@ -185,7 +166,6 @@ function createText(message, callback) {
         scene.add(textMesh);
         textMeshes.push(textMesh);
         console.log("Text mesh created:", textMesh);
-        // log performance time
         const endTime = performance.now();
         console.log("Operation took", endTime - performanceStart, "milliseconds");
         if (callback) callback();
@@ -199,17 +179,21 @@ function createClouds() {
 
     const tuft1 = new THREE.SphereGeometry(1.5, 7, 8);
     tuft1.translate(-2, 0, 0);
-    geo.merge(tuft1);
 
     const tuft2 = new THREE.SphereGeometry(1.5, 7, 8);
     tuft2.translate(2, 0, 0);
-    geo.merge(tuft2);
 
     const tuft3 = new THREE.SphereGeometry(2.0, 7, 8);
     tuft3.translate(0, 0, 0);
-    geo.merge(tuft3);
 
-    geo.computeFlatVertexNormals();
+    const combinedVertices = new Float32Array([
+        ...tuft1.attributes.position.array,
+        ...tuft2.attributes.position.array,
+        ...tuft3.attributes.position.array
+    ]);
+
+    geo.setAttribute('position', new THREE.BufferAttribute(combinedVertices, 3));
+    geo.computeVertexNormals();
 
     jitter(geo, 0.2);
     chopBottom(geo, -0.5);
@@ -221,7 +205,6 @@ function createClouds() {
 
     const cloud = new THREE.Mesh(geo, material);
     cloud.position.set(0, 20, 0);
-    clouds.push(cloud);
     scene.add(cloud);
 
     const light2 = new THREE.DirectionalLight(0xff5566, 0.7);
@@ -229,35 +212,49 @@ function createClouds() {
     scene.add(light2);
 }
 
+function jitter(geo, per) {
+    const position = geo.attributes.position;
+    const count = position.count;
+
+    for (let i = 0; i < count; i++) {
+        const x = position.getX(i);
+        const y = position.getY(i);
+        const z = position.getZ(i);
+
+        position.setXYZ(
+            i,
+            x + (Math.random() * per * 2 - per),
+            y + (Math.random() * per * 2 - per),
+            z + (Math.random() * per * 2 - per)
+        );
+    }
+    position.needsUpdate = true;
+}
+
+function chopBottom(geo, bottom) {
+    const position = geo.attributes.position;
+    const count = position.count;
+
+    for (let i = 0; i < count; i++) {
+        const y = position.getY(i);
+        if (y < bottom) {
+            position.setY(i, bottom);
+        }
+    }
+    position.needsUpdate = true;
+}
+
 function removeClouds() {
     clouds.forEach(cloud => scene.remove(cloud));
     clouds = [];
 }
-
-function jitter(geo, per) {
-    geo.vertices.forEach(v => {
-        v.x += map(Math.random(), 0, 1, -per, per);
-        v.y += map(Math.random(), 0, 1, -per, per);
-        v.z += map(Math.random(), 0, 1, -per, per);
-    });
-}
-
-function chopBottom(geo, bottom) {
-    geo.vertices.forEach(v => v.y = Math.max(v.y, bottom));
-}
-
-function map(val, smin, smax, emin, emax) {
-    return (emax - emin) * (val - smin) / (smax - smin) + emin;
-}
-
-
 
 function createOcean() {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
     water = new Water(waterGeometry, {
         textureWidth: 512,
         textureHeight: 512,
-        waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', (texture) => {
+        waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', texture => {
             texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
         }),
         alpha: 1.0,
@@ -294,14 +291,99 @@ function animate() {
         water.material.uniforms['time'].value += 1.0 / 60.0;
     }
     renderer.render(scene, camera);
-    // log performance time
-    // if first function call, log time
     if (isFirstCall) {
         const performanceAnimate = performance.now();
-        //print performance time
         console.log('Time to animate():', performanceAnimate - performanceStart);
         isFirstCall = false;
     }
+}
+
+function loadInitialHDRI(callback) {
+    loadHDRI(() => {
+        loadDepthMapFromDir(depthDir, callback);
+    });
+}
+
+function loadHDRI(callback) {
+    if (!hdrPath) return;
+
+    console.log("Loading HDRI from path:", hdrPath);
+    new RGBELoader()
+        .setDataType(THREE.HalfFloatType)
+        .load(hdrPath, texture => {
+            console.log("HDRI parsed successfully", texture);
+
+            if (currentHDRTexture) {
+                currentHDRTexture.dispose();
+            }
+            if (currentHDRRenderTarget) {
+                currentHDRRenderTarget.texture.dispose();
+                currentHDRRenderTarget.dispose();
+            }
+
+            const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
+            scene.environment = hdrRenderTarget.texture;
+            scene.background = hdrRenderTarget.texture;
+
+            scene.environment.needsUpdate = true;
+            scene.background.needsUpdate = true;
+
+            updateTextEnvMap(hdrRenderTarget.texture);
+
+            currentHDRTexture = texture;
+            currentHDRRenderTarget = hdrRenderTarget;
+
+            console.log("HDRI environment applied");
+
+            scene.traverse(child => {
+                if (child.isMesh) {
+                    child.material.needsUpdate = true;
+                }
+            });
+
+            if (callback) callback();
+        }, undefined, error => {
+            console.error("Error loading HDRI:", error);
+        });
+}
+
+function loadDepthMap(path, callback) {
+    if (!path) return;
+
+    new THREE.TextureLoader().load(path, texture => {
+        depthMap = texture;
+        depthMap.minFilter = THREE.LinearFilter;
+        depthMap.magFilter = THREE.LinearFilter;
+        depthMap.format = THREE.RGBAFormat;
+        console.log("Depth map loaded");
+        if (callback) callback();
+    }, undefined, error => {
+        console.error("Error loading depth map:", error);
+    });
+}
+
+function loadDepthMapFromDir(depthDir, callback) {
+    const depthFile = 'depth.jpg';
+    const filePath = `${depthDir}/${depthFile}`;
+    console.log("Checking:", filePath);
+    const req = new XMLHttpRequest();
+    req.open('HEAD', filePath, false);
+    req.send();
+
+    if (req.status !== 404) {
+        console.log("Depth map path:", filePath);
+        loadDepthMap(filePath, callback);
+    } else {
+        console.log("No depth map found for directory:", depthDir);
+        if (callback) callback();
+    }
+}
+
+function updateTextEnvMap(envMap) {
+    textMeshes.forEach(mesh => {
+        mesh.material.envMap = envMap;
+        mesh.material.needsUpdate = true;
+    });
 }
 
 function addSettings(cubeFolder) {
@@ -356,7 +438,6 @@ function removeSettings(cubeFolder) {
     });
 }
 
-
 function initGUI() {
     const gui = new GUI();
     const textMaterial = textMeshes[0]?.material;
@@ -377,14 +458,14 @@ function initGUI() {
         'Pink Sunset': '005/005.hdr',
         'Full Moon': '006/006.hdr',
         'Cloudy Sunset': '007/007.hdr',
-        'Another World': '008/008.hdr'
+        'Another World': '008/008.hdr',
+        'Memorial Church': 'memorial.hdr'
     };
 
-    hdrOptions['Memorial Church'] = 'memorial.hdr';
     hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
         hdrPath = value === 'memorial.hdr' ? `/hdr/${value}` : `/hdr/ocean_hdri/${value}`;
+        console.log("HDR Path changed to:", hdrPath);
         loadHDRI(() => {
-            // if memorial.hdr, no depth map
             if (value === 'memorial.hdr') return;
             const depthDir = `/hdr/ocean_hdri/${value.split('/')[0]}`;
             console.log("Depth directory:", depthDir);
@@ -394,7 +475,6 @@ function initGUI() {
 
     hdrFolder.close();
 
-    // add an option to mute audio
     const audioFolder = gui.addFolder('Audio');
     audioFolder.add({ mute: false }, 'mute').name('Mute').onChange(value => {
         sound.setVolume(value ? 0 : 0.5);
@@ -423,10 +503,8 @@ function initGUI() {
         else removeClouds();
     });
     cloudFolder.close();
-
 }
 
-// Lazy load non-essential scripts
 document.addEventListener('DOMContentLoaded', () => {
     setupAudio();
 });
