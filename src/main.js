@@ -1,13 +1,12 @@
+// In main.js
 import * as THREE from 'three';
-import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { Water } from 'three/examples/jsm/objects/Water.js';
-import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
-import AssetLoader from  './components/assetLoader.js';
+import AssetLoader from './components/assetLoader.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 let previousTime = 0;
@@ -22,13 +21,23 @@ document.body.appendChild(stats.dom);
 const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
 
-let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water;
+let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water, mixer, currentAction;
 let depthDir = '/hdr/ocean_hdri/001';
 let depthMap;
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
 let currentCube = null;
+let currentAnimationIndex = 0;
+
+const danceAnimations = [
+    "Breakdance_Pack/breakdance 1990 (2).fbx",
+    "Breakdance_Pack/breakdance 1990 (3).fbx",
+    "Breakdance_Pack/breakdance 1990.fbx",
+    "Breakdance_Pack/breakdance ending 1.fbx",
+    "Breakdance_Pack/breakdance ending 2.fbx",
+    // Add other animation paths here...
+];
 
 init();
 animate();
@@ -40,18 +49,17 @@ function init() {
     setupControls();
     setupLights();
 
-
     AssetLoader.preload(() => {
         console.log('Essential assets loaded, setting up scene');
         setupObjects(() => {
             loadHDRI('/hdr/ocean_hdri/001/001.hdr', () => {
                 initGUI();
+                loadNextAnimation();
                 animate();
                 document.getElementById('loadingScreen').style.display = 'none';
             });
         });
     });
-
 
     transformControl = new TransformControls(camera, renderer.domElement);
     transformControl.rotationSnap = THREE.MathUtils.degToRad(15); // 15 degrees in radians
@@ -257,6 +265,10 @@ function animate(currentTime) {
             water.material.uniforms['time'].value += 1.0 / desiredFPS;
         }
 
+        if (mixer) {
+            mixer.update(deltaTime / 1000); // Update the animation mixer
+        }
+
         renderer.render(scene, camera);
 
         // End stats recording
@@ -266,9 +278,60 @@ function animate(currentTime) {
     }
 }
 
-function loadInitialHDRI(callback) {
-    loadHDRI(() => {
-        loadDepthMapFromDir(depthDir, callback);
+function loadNextAnimation() {
+    if (currentAnimationIndex >= danceAnimations.length) {
+        currentAnimationIndex = 0;
+    }
+
+    const animationPath = danceAnimations[currentAnimationIndex];
+    AssetLoader.loadNextAnimation(animationPath, (animation) => {
+        console.log(animation)
+        if (animation) {
+            playAnimation(animation);
+        } else {
+            console.error('Failed to load animation:', animationPath);
+        }
+    });
+
+    currentAnimationIndex++;
+}
+
+// TODO https://chatgpt.com/c/319493f3-f51c-4b53-bb93-7543d0600084
+
+// function loadNextAnimation() {
+//     if (currentAnimationIndex >= danceAnimations.length) {
+//         currentAnimationIndex = 0;
+//     }
+
+//     const animationPath = danceAnimations[currentAnimationIndex];
+//     AssetLoader.loadAsset('animations', `animation_${currentAnimationIndex}`, animationPath, (object) => {
+//         if (object && object.animations && object.animations.length > 0) {
+//             console.log('Loaded animation object:', object);
+//             playAnimation(object.animations[0]);
+//         } else {
+//             console.error('No animations found in:', animationPath);
+//             // Load the next animation if the current one is invalid
+//             currentAnimationIndex++;
+//             loadNextAnimation();
+//         }
+//     });
+// }
+
+
+function playAnimation(animation) {
+    if (currentAction) {
+        currentAction.fadeOut(0.5);
+    }
+
+    mixer = new THREE.AnimationMixer(scene);
+    const action = mixer.clipAction(animation);
+    action.reset();
+    action.fadeIn(0.5);
+    action.play();
+    currentAction = action;
+
+    action.addEventListener('finished', () => {
+        loadNextAnimation();
     });
 }
 
@@ -299,8 +362,6 @@ function loadHDRI(path, callback) {
         if (callback) callback();
     });
 }
-
-
 
 function loadDepthMap(path, callback) {
     if (!path) return;

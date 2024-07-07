@@ -1,4 +1,5 @@
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
 import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 
@@ -9,19 +10,23 @@ class AssetLoader {
             hdris: {},
             textures: {},
             audio: {},
-            fonts: {}
+            fonts: {},
+            models: {},
+            animations: {}
         };
         this.rgbeLoader = new RGBELoader(this.loadingManager);
         this.textureLoader = new THREE.TextureLoader(this.loadingManager);
         this.audioLoader = new THREE.AudioLoader(this.loadingManager);
         this.fontLoader = new FontLoader(this.loadingManager);
+        this.fbxLoader = new FBXLoader(this.loadingManager);
     }
 
     preload(progressCallback, completionCallback) {
         const essentialAssets = [
             { type: 'textures', name: 'waterNormals', path: 'https://threejs.org/examples/textures/waternormals.jpg' },
             { type: 'audio', name: 'backgroundMusic', path: '/fresh_and_clean.mp3' },
-            { type: 'fonts', name: 'helvetiker', path: 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json' }
+            { type: 'fonts', name: 'helvetiker', path: 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json' },
+            { type: 'models', name: 'character', path: '/Breakdance_Pack/Ch32_nonPBR.fbx' }
         ];
 
         let loadedCount = 0;
@@ -55,6 +60,10 @@ class AssetLoader {
             case 'fonts':
                 loader = this.fontLoader;
                 break;
+            case 'models':
+            case 'animations':
+                loader = this.fbxLoader;
+                break;
             default:
                 console.error('Unknown asset type:', type);
                 return;
@@ -63,6 +72,11 @@ class AssetLoader {
         loader.load(path, 
             (asset) => {
                 console.log(`Loaded ${type} ${name}`);
+                if (type === 'models') {
+                    this.processModel(asset);
+                } else if (type === 'animations') {
+                    this.processAnimation(name, asset);
+                }
                 this.assets[type][name] = asset;
                 if (callback) callback(asset);
             }, 
@@ -72,6 +86,22 @@ class AssetLoader {
                 if (callback) callback(null);
             }
         );
+    }
+
+    processModel(model) {
+        model.scale.setScalar(0.1);
+        model.traverse((child) => {
+            if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+            }
+        });
+    }
+
+    processAnimation(name, object) {
+        if (object.animations) {
+            this.assets.animations[name] = object.animations[0];
+        }
     }
 
     loadHDRI(name, path, callback) {
@@ -115,6 +145,15 @@ class AssetLoader {
 
     getAsset(type, name) {
         return this.assets[type][name];
+    }
+
+    loadNextAnimation(animationPath, callback) {
+        const name = animationPath.split('/').pop();
+        this.loadAsset('animations', name, animationPath, (asset) => {
+            if (asset) {
+                callback(asset);
+            }
+        });
     }
 }
 
