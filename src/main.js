@@ -7,6 +7,7 @@ import { FontLoader } from 'three/examples/jsm/loaders/FontLoader.js';
 import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
+import AssetLoader from  './components/assetLoader.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 let previousTime = 0;
@@ -43,12 +44,18 @@ function init() {
     setupControls();
     setupLights();
 
-    loadInitialHDRI(() => {
+
+    AssetLoader.preload(() => {
+        console.log('Essential assets loaded, setting up scene');
         setupObjects(() => {
-            initGUI();
-            document.getElementById('loadingScreen').style.display = 'none';
+            loadHDRI('/hdr/ocean_hdri/001/001.hdr', () => {
+                initGUI();
+                animate();
+                document.getElementById('loadingScreen').style.display = 'none';
+            });
         });
     });
+
 
     transformControl = new TransformControls(camera, renderer.domElement);
     transformControl.rotationSnap = THREE.MathUtils.degToRad(15); // 15 degrees in radians
@@ -149,57 +156,61 @@ function setupObjects(callback) {
 }
 
 function createText(message, callback) {
-    const loader = new FontLoader();
-    loader.load('https://threejs.org/examples/fonts/helvetiker_regular.typeface.json', font => {
-        const textGeometry = new TextGeometry(message, {
-            font: font,
-            size: 10,
-            depth: 2,
-            curveSegments: 3,
-            bevelEnabled: true,
-            bevelThickness: 1,
-            bevelSize: 1,
-            bevelOffset: 0,
-            bevelSegments: 3
-        });
-        textGeometry.computeBoundingBox();
-        const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-        const textMaterial = new THREE.MeshPhysicalMaterial({
-            color: 0xffffff,
-            metalness: params.metalness,
-            roughness: params.roughness,
-            envMapIntensity: 1.0,
-            clearcoat: 1.0,
-            clearcoatRoughness: 0,
-            ior: 1.5,
-            reflectivity: 1.0,
-            envMap: scene.environment
-        });
-        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-        textMesh.position.set(centerOffsetX, 10, 0);
-        textMesh.castShadow = true;
-        scene.add(textMesh);
-        textMeshes.push(textMesh);
-        console.log("Text mesh created:", textMesh);
-        const endTime = performance.now();
-        console.log("Operation took", endTime - performanceStart, "milliseconds");
-        if (callback) callback();
+    const font = AssetLoader.getAsset('fonts', 'helvetiker');
+    if (!font) {
+        console.error('Font not loaded');
+        return;
+    }
+    const textGeometry = new TextGeometry(message, {
+        font: font,
+        size: 10,
+        depth: 2,
+        curveSegments: 3,
+        bevelEnabled: true,
+        bevelThickness: 1,
+        bevelSize: 1,
+        bevelOffset: 0,
+        bevelSegments: 3
     });
+    textGeometry.computeBoundingBox();
+    const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+    const textMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xffffff,
+        metalness: params.metalness,
+        roughness: params.roughness,
+        envMapIntensity: 1.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0,
+        ior: 1.5,
+        reflectivity: 1.0,
+        envMap: scene.environment
+    });
+    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+    textMesh.position.set(centerOffsetX, 10, 0);
+    textMesh.castShadow = true;
+    scene.add(textMesh);
+    textMeshes.push(textMesh);
+    console.log("Text mesh created:", textMesh);
+    if (callback) callback();
 }
 
 function createOcean() {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
+    const waterNormals = AssetLoader.getAsset('textures', 'waterNormals');
+    if (!waterNormals) {
+        console.error('Water normals texture not loaded');
+        return;
+    }
+    waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping;
+    
     water = new Water(waterGeometry, {
         textureWidth: 512,
         textureHeight: 512,
-        waterNormals: new THREE.TextureLoader().load('https://threejs.org/examples/textures/waternormals.jpg', texture => {
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        }),
+        waterNormals: waterNormals,
         alpha: 1.0,
         sunDirection: new THREE.Vector3(),
         sunColor: 0xffffff,
         waterColor: 0x001e0f,
-        distortion: 0.1,
         distortionScale: 3.7,
         fog: scene.fog !== undefined
     });
@@ -259,48 +270,34 @@ function loadInitialHDRI(callback) {
     });
 }
 
-function loadHDRI(callback) {
-    if (!hdrPath) return;
+function loadHDRI(path, callback) {
+    const name = path.split('/').pop();
+    AssetLoader.loadHDRI(name, path, (texture) => {
+        if (!texture) {
+            console.error('HDRI texture not loaded:', path);
+            return;
+        }
 
-    console.log("Loading HDRI from path:", hdrPath);
-    new RGBELoader()
-        .setDataType(THREE.HalfFloatType)
-        .load(hdrPath, texture => {
-            console.log("HDRI parsed successfully", texture);
+        const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
+        scene.environment = hdrRenderTarget.texture;
+        scene.background = hdrRenderTarget.texture;
 
-            if (currentHDRTexture) {
-                currentHDRTexture.dispose();
+        scene.environment.needsUpdate = true;
+        scene.background.needsUpdate = true;
+
+        updateTextEnvMap(hdrRenderTarget.texture);
+
+        scene.traverse(child => {
+            if (child.isMesh) {
+                child.material.needsUpdate = true;
             }
-            if (currentHDRRenderTarget) {
-                currentHDRRenderTarget.texture.dispose();
-                currentHDRRenderTarget.dispose();
-            }
-
-            const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
-            scene.environment = hdrRenderTarget.texture;
-            scene.background = hdrRenderTarget.texture;
-
-            scene.environment.needsUpdate = true;
-            scene.background.needsUpdate = true;
-
-            updateTextEnvMap(hdrRenderTarget.texture);
-
-            currentHDRTexture = texture;
-            currentHDRRenderTarget = hdrRenderTarget;
-
-            console.log("HDRI environment applied");
-
-            scene.traverse(child => {
-                if (child.isMesh) {
-                    child.material.needsUpdate = true;
-                }
-            });
-
-            if (callback) callback();
-        }, undefined, error => {
-            console.error("Error loading HDRI:", error);
         });
+
+        if (callback) callback();
+    });
 }
+
+
 
 function loadDepthMap(path, callback) {
     if (!path) return;
@@ -404,15 +401,9 @@ function initGUI() {
         'Memorial Church': 'memorial.hdr'
     };
 
+    // In your initGUI function, update the HDRI onChange handler:
     hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
-        hdrPath = value === 'memorial.hdr' ? `/hdr/${value}` : `/hdr/ocean_hdri/${value}`;
-        console.log("HDR Path changed to:", hdrPath);
-        loadHDRI(() => {
-            if (value === 'memorial.hdr') return;
-            const depthDir = `/hdr/ocean_hdri/${value.split('/')[0]}`;
-            console.log("Depth directory:", depthDir);
-            loadDepthMapFromDir(depthDir);
-        });
+        loadHDRI(value);
     });
 
     hdrFolder.close();
