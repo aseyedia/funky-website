@@ -23,15 +23,11 @@ const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
 
 let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water;
-let hdrPath = '/hdr/ocean_hdri/001/001.hdr';
 let depthDir = '/hdr/ocean_hdri/001';
 let depthMap;
-let currentHDRTexture = null;
-let currentHDRRenderTarget = null;
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
-let isFirstCall = true;
 let currentCube = null;
 
 init();
@@ -156,42 +152,48 @@ function setupObjects(callback) {
 }
 
 function createText(message, callback) {
-    const font = AssetLoader.getAsset('fonts', 'helvetiker');
-    if (!font) {
-        console.error('Font not loaded');
-        return;
+    function attemptCreateText() {
+        const font = AssetLoader.getAsset('fonts', 'helvetiker');
+        if (!font) {
+            console.log('Font not loaded yet, retrying in 100ms');
+            setTimeout(attemptCreateText, 100);
+            return;
+        }
+        
+        const textGeometry = new TextGeometry(message, {
+            font: font,
+            size: 10,
+            depth: 2,
+            curveSegments: 3,
+            bevelEnabled: true,
+            bevelThickness: 1,
+            bevelSize: 1,
+            bevelOffset: 0,
+            bevelSegments: 3
+        });
+        textGeometry.computeBoundingBox();
+        const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        const textMaterial = new THREE.MeshPhysicalMaterial({
+            color: 0xffffff,
+            metalness: params.metalness,
+            roughness: params.roughness,
+            envMapIntensity: 1.0,
+            clearcoat: 1.0,
+            clearcoatRoughness: 0,
+            ior: 1.5,
+            reflectivity: 1.0,
+            envMap: scene.environment
+        });
+        const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+        textMesh.position.set(centerOffsetX, 10, 0);
+        textMesh.castShadow = true;
+        scene.add(textMesh);
+        textMeshes.push(textMesh);
+        console.log("Text mesh created:", textMesh);
+        if (callback) callback();
     }
-    const textGeometry = new TextGeometry(message, {
-        font: font,
-        size: 10,
-        depth: 2,
-        curveSegments: 3,
-        bevelEnabled: true,
-        bevelThickness: 1,
-        bevelSize: 1,
-        bevelOffset: 0,
-        bevelSegments: 3
-    });
-    textGeometry.computeBoundingBox();
-    const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
-    const textMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xffffff,
-        metalness: params.metalness,
-        roughness: params.roughness,
-        envMapIntensity: 1.0,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0,
-        ior: 1.5,
-        reflectivity: 1.0,
-        envMap: scene.environment
-    });
-    const textMesh = new THREE.Mesh(textGeometry, textMaterial);
-    textMesh.position.set(centerOffsetX, 10, 0);
-    textMesh.castShadow = true;
-    scene.add(textMesh);
-    textMeshes.push(textMesh);
-    console.log("Text mesh created:", textMesh);
-    if (callback) callback();
+
+    attemptCreateText();
 }
 
 function createOcean() {
@@ -272,6 +274,7 @@ function loadInitialHDRI(callback) {
 
 function loadHDRI(path, callback) {
     const name = path.split('/').pop();
+    console.log("Loading HDRI:", path);
     AssetLoader.loadHDRI(name, path, (texture) => {
         if (!texture) {
             console.error('HDRI texture not loaded:', path);
@@ -403,7 +406,9 @@ function initGUI() {
 
     // In your initGUI function, update the HDRI onChange handler:
     hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
-        loadHDRI(value);
+        // prepend hdr/ocean_hdri to value
+        const path = `/hdr/ocean_hdri/${value}`;
+        loadHDRI(path);
     });
 
     hdrFolder.close();

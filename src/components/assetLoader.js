@@ -17,8 +17,7 @@ class AssetLoader {
         this.fontLoader = new FontLoader(this.loadingManager);
     }
 
-    preload(callback) {
-        // Preload essential assets only
+    preload(progressCallback, completionCallback) {
         const essentialAssets = [
             { type: 'textures', name: 'waterNormals', path: 'https://threejs.org/examples/textures/waternormals.jpg' },
             { type: 'audio', name: 'backgroundMusic', path: '/fresh_and_clean.mp3' },
@@ -31,10 +30,11 @@ class AssetLoader {
         essentialAssets.forEach(asset => {
             this.loadAsset(asset.type, asset.name, asset.path, () => {
                 loadedCount++;
-                this.updateLoadingProgress(loadedCount, totalCount);
+                const progress = (loadedCount / totalCount) * 100;
+                if (progressCallback) progressCallback(progress);
                 if (loadedCount === totalCount) {
                     console.log('Essential assets loaded');
-                    if (callback) callback();
+                    if (completionCallback) completionCallback();
                 }
             });
         });
@@ -60,12 +60,18 @@ class AssetLoader {
                 return;
         }
 
-        loader.load(path, (asset) => {
-            this.assets[type][name] = asset;
-            if (callback) callback(asset);
-        }, undefined, (error) => {
-            console.error(`Error loading ${type} ${name}:`, error);
-        });
+        loader.load(path, 
+            (asset) => {
+                console.log(`Loaded ${type} ${name}`);
+                this.assets[type][name] = asset;
+                if (callback) callback(asset);
+            }, 
+            undefined, 
+            (error) => {
+                console.error(`Error loading ${type} ${name}:`, error);
+                if (callback) callback(null);
+            }
+        );
     }
 
     loadHDRI(name, path, callback) {
@@ -74,17 +80,41 @@ class AssetLoader {
             return;
         }
 
-        this.loadAsset('hdris', name, path, callback);
+        console.log(`Attempting to load HDRI: ${path}`);
+        this.rgbeLoader.load(
+            path,
+            (texture) => {
+                console.log(`HDRI loaded successfully: ${name}`);
+                this.assets.hdris[name] = texture;
+                if (callback) callback(texture);
+            },
+            undefined,
+            (error) => {
+                console.error(`Error loading HDRI ${name} from ${path}:`, error);
+                this.loadFallbackHDRI(callback);
+            }
+        );
+    }
+
+    loadFallbackHDRI(callback) {
+        const fallbackPath = '/hdr/fallback.hdr'; // Replace with an actual fallback HDRI path
+        console.log('Attempting to load fallback HDRI:', fallbackPath);
+        this.rgbeLoader.load(
+            fallbackPath,
+            (texture) => {
+                console.log('Fallback HDRI loaded successfully');
+                if (callback) callback(texture);
+            },
+            undefined,
+            (error) => {
+                console.error('Failed to load fallback HDRI:', error);
+                if (callback) callback(null);
+            }
+        );
     }
 
     getAsset(type, name) {
         return this.assets[type][name];
-    }
-
-    updateLoadingProgress(current, total) {
-        const progress = (current / total) * 100;
-        document.getElementById('loadingBar').style.width = `${progress}%`;
-        document.getElementById('loadingText').innerText = `Loading... ${Math.round(progress)}%`;
     }
 }
 
