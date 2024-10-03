@@ -1,13 +1,13 @@
 import { defineConfig } from 'vite';
-import { viteStaticCopy } from 'vite-plugin-static-copy';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  plugins: [react()],
   root: './src',
   build: {
-    outDir: './dist',
+    outDir: '../dist',
   },
   server: {
     port: 3000,
-  }
-  // publicDir: 'src/public', // Set the public directory
+  },
 });
