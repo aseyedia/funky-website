@@ -21,26 +21,79 @@ document.body.appendChild(stats.dom);
 const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
 
-let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water, mixer, currentAction;
-let depthDir = '/hdr/ocean_hdri/001';
-let depthMap;
+let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water;
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
 let currentCube = null;
-let currentAnimationIndex = 0;
+
+// Dancer state
+const dancers = [];
+let dancersLoading = false;
+const DANCER_POSITIONS = [
+    { x: -25, y: 0, z: 45 },
+    { x:   0, y: 0, z: 55 },
+    { x:  25, y: 0, z: 45 },
+];
 
 const danceAnimations = [
+    "Breakdance_Pack/breakdance 1990.fbx",
     "Breakdance_Pack/breakdance 1990 (2).fbx",
     "Breakdance_Pack/breakdance 1990 (3).fbx",
-    "Breakdance_Pack/breakdance 1990.fbx",
+    "Breakdance_Pack/breakdance uprock.fbx",
+    "Breakdance_Pack/breakdance uprock (2).fbx",
+    "Breakdance_Pack/breakdance uprock var 1 start.fbx",
+    "Breakdance_Pack/breakdance uprock var 1.fbx",
+    "Breakdance_Pack/breakdance uprock var 1 end.fbx",
+    "Breakdance_Pack/breakdance uprock var 2.fbx",
+    "Breakdance_Pack/breakdance uprock to ground.fbx",
+    "Breakdance_Pack/breakdance uprock to ground (2).fbx",
+    "Breakdance_Pack/breakdance footwork 1.fbx",
+    "Breakdance_Pack/breakdance footwork 2.fbx",
+    "Breakdance_Pack/breakdance footwork 3.fbx",
+    "Breakdance_Pack/breakdance footwork to freeze.fbx",
+    "Breakdance_Pack/breakdance freezes.fbx",
+    "Breakdance_Pack/breakdance freeze var 1.fbx",
+    "Breakdance_Pack/breakdance freeze var 2.fbx",
+    "Breakdance_Pack/breakdance freeze var 3.fbx",
+    "Breakdance_Pack/breakdance freeze var 4.fbx",
+    "Breakdance_Pack/crossleg freeze.fbx",
+    "Breakdance_Pack/flair.fbx",
+    "Breakdance_Pack/flair (2).fbx",
+    "Breakdance_Pack/flair (3).fbx",
+    "Breakdance_Pack/breakdance swipes.fbx",
+    "Breakdance_Pack/brooklyn uprock.fbx",
+    "Breakdance_Pack/breakdance footwork to idle.fbx",
+    "Breakdance_Pack/breakdance footwork to idle (2).fbx",
+    "Breakdance_Pack/breakdance ready.fbx",
+    "Breakdance_Pack/breakdance ready (2).fbx",
+    "Breakdance_Pack/breakdance ready (3).fbx",
     "Breakdance_Pack/breakdance ending 1.fbx",
     "Breakdance_Pack/breakdance ending 2.fbx",
-    // Add other animation paths here...
+    "Breakdance_Pack/breakdance ending 3.fbx",
 ];
 
 init();
 animate();
+
+const lazyLoadItems = new Set();
+function showLazyStatus(id, msg) {
+    lazyLoadItems.add(id);
+    const el = document.getElementById('lazy-status');
+    if (!el) return;
+    el.textContent = msg || `loading ${id}...`;
+    el.style.display = 'block';
+    el.style.opacity = '1';
+}
+function hideLazyStatus(id) {
+    lazyLoadItems.delete(id);
+    if (lazyLoadItems.size === 0) {
+        const el = document.getElementById('lazy-status');
+        if (!el) return;
+        el.style.opacity = '0';
+        setTimeout(() => { el.style.display = 'none'; }, 600);
+    }
+}
 
 function init() {
     setupCamera();
@@ -52,12 +105,18 @@ function init() {
     AssetLoader.preload(() => {
         console.log('Essential assets loaded, setting up scene');
         setupObjects(() => {
-            loadHDRI('/hdr/ocean_hdri/001/001.hdr', () => {
-                initGUI();
-                loadNextAnimation();
-                animate();
-                document.getElementById('loadingScreen').style.display = 'none';
+            initGUI();
+            document.getElementById('loadingScreen').style.display = 'none';
+
+            // Lazy load HDRI in background
+            showLazyStatus('hdri', 'loading environment...');
+            loadHDRI(`${import.meta.env.BASE_URL}hdr/ocean_hdri/001/001.hdr`, () => {
+                hideLazyStatus('hdri');
             });
+
+            // Lazy load audio
+            showLazyStatus('audio', 'loading audio...');
+            setupAudio(() => hideLazyStatus('audio'));
         });
     });
 
@@ -101,7 +160,7 @@ function setupRenderer() {
     renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = params.exposure;
-    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.body.appendChild(renderer.domElement);
 }
 
@@ -124,23 +183,26 @@ function setupLights() {
     scene.add(dirLight);
 }
 
-function setupAudio() {
+function setupAudio(onLoaded) {
     const listener = new THREE.AudioListener();
     camera.add(listener);
 
     sound = new THREE.Audio(listener);
     const audioLoader = new THREE.AudioLoader();
 
-    audioLoader.load('/fresh_and_clean.mp3', buffer => {
+    audioLoader.load(`${import.meta.env.BASE_URL}fresh_and_clean.mp3`, buffer => {
         sound.setBuffer(buffer);
         sound.setLoop(true);
         sound.setVolume(0.5);
+        if (onLoaded) onLoaded();
         if (listener.context.state === 'suspended') {
             document.addEventListener('click', resumeAudioContext);
             document.addEventListener('keydown', resumeAudioContext);
         } else {
             sound.play();
         }
+    }, undefined, () => {
+        if (onLoaded) onLoaded(); // hide status even on error
     });
 
     function resumeAudioContext() {
@@ -156,6 +218,68 @@ function setupObjects(callback) {
     createText('Arta Seyedian', () => {
         createOcean();
         if (callback) callback();
+    });
+}
+
+function enableDancer() {
+    if (dancers.length > 0) {
+        dancers.forEach(d => {
+            d.model.visible = true;
+            playDancerNextAnimation(d);
+        });
+        return;
+    }
+    if (dancersLoading) return;
+    dancersLoading = true;
+
+    let remaining = DANCER_POSITIONS.length;
+    DANCER_POSITIONS.forEach((pos, i) => {
+        AssetLoader.loadCharacterModel((fbx) => {
+            remaining--;
+            if (fbx) {
+                fbx.position.set(pos.x, pos.y, pos.z);
+                scene.add(fbx);
+                const dancerMixer = new THREE.AnimationMixer(fbx);
+                const animOffset = Math.floor(i * danceAnimations.length / DANCER_POSITIONS.length);
+                const dancer = { model: fbx, mixer: dancerMixer, animIndex: animOffset, currentAction: null, loading: false };
+                dancers.push(dancer);
+                playDancerNextAnimation(dancer);
+            }
+            if (remaining === 0) dancersLoading = false;
+        });
+    });
+}
+
+function disableDancer() {
+    dancers.forEach(d => {
+        d.mixer.stopAllAction();
+        d.currentAction = null;
+        d.model.visible = false;
+    });
+}
+
+function playDancerNextAnimation(dancer) {
+    if (dancer.loading) return;
+    dancer.loading = true;
+    if (dancer.animIndex >= danceAnimations.length) dancer.animIndex = 0;
+    const path = danceAnimations[dancer.animIndex++];
+    AssetLoader.loadNextAnimation(path, (clip) => {
+        dancer.loading = false;
+        if (!clip) {
+            playDancerNextAnimation(dancer);
+            return;
+        }
+        if (dancer.currentAction) dancer.currentAction.fadeOut(0.5);
+        const action = dancer.mixer.clipAction(clip);
+        action.reset();
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.fadeIn(0.5);
+        action.play();
+        dancer.currentAction = action;
+        // Schedule transition to next animation after one full play-through
+        setTimeout(() => {
+            if (dancer.currentAction === action) playDancerNextAnimation(dancer);
+        }, clip.duration * 1000);
     });
 }
 
@@ -265,9 +389,7 @@ function animate(currentTime) {
             water.material.uniforms['time'].value += 1.0 / desiredFPS;
         }
 
-        if (mixer) {
-            mixer.update(deltaTime / 1000); // Update the animation mixer
-        }
+        dancers.forEach(d => d.mixer.update(deltaTime / 1000));
 
         renderer.render(scene, camera);
 
@@ -278,62 +400,6 @@ function animate(currentTime) {
     }
 }
 
-function loadNextAnimation() {
-    if (currentAnimationIndex >= danceAnimations.length) {
-        currentAnimationIndex = 0;
-    }
-
-    const animationPath = danceAnimations[currentAnimationIndex];
-    AssetLoader.loadNextAnimation(animationPath, (animation) => {
-        console.log(animation)
-        if (animation) {
-            playAnimation(animation);
-        } else {
-            console.error('Failed to load animation:', animationPath);
-        }
-    });
-
-    currentAnimationIndex++;
-}
-
-// TODO https://chatgpt.com/c/319493f3-f51c-4b53-bb93-7543d0600084
-
-// function loadNextAnimation() {
-//     if (currentAnimationIndex >= danceAnimations.length) {
-//         currentAnimationIndex = 0;
-//     }
-
-//     const animationPath = danceAnimations[currentAnimationIndex];
-//     AssetLoader.loadAsset('animations', `animation_${currentAnimationIndex}`, animationPath, (object) => {
-//         if (object && object.animations && object.animations.length > 0) {
-//             console.log('Loaded animation object:', object);
-//             playAnimation(object.animations[0]);
-//         } else {
-//             console.error('No animations found in:', animationPath);
-//             // Load the next animation if the current one is invalid
-//             currentAnimationIndex++;
-//             loadNextAnimation();
-//         }
-//     });
-// }
-
-
-function playAnimation(animation) {
-    if (currentAction) {
-        currentAction.fadeOut(0.5);
-    }
-
-    mixer = new THREE.AnimationMixer(scene);
-    const action = mixer.clipAction(animation);
-    action.reset();
-    action.fadeIn(0.5);
-    action.play();
-    currentAction = action;
-
-    action.addEventListener('finished', () => {
-        loadNextAnimation();
-    });
-}
 
 function loadHDRI(path, callback) {
     const name = path.split('/').pop();
@@ -363,37 +429,6 @@ function loadHDRI(path, callback) {
     });
 }
 
-function loadDepthMap(path, callback) {
-    if (!path) return;
-
-    new THREE.TextureLoader().load(path, texture => {
-        depthMap = texture;
-        depthMap.minFilter = THREE.LinearFilter;
-        depthMap.magFilter = THREE.LinearFilter;
-        depthMap.format = THREE.RGBAFormat;
-        console.log("Depth map loaded");
-        if (callback) callback();
-    }, undefined, error => {
-        console.error("Error loading depth map:", error);
-    });
-}
-
-function loadDepthMapFromDir(depthDir, callback) {
-    const depthFile = 'depth.jpg';
-    const filePath = `${depthDir}/${depthFile}`;
-    console.log("Checking:", filePath);
-    const req = new XMLHttpRequest();
-    req.open('HEAD', filePath, false);
-    req.send();
-
-    if (req.status !== 404) {
-        console.log("Depth map path:", filePath);
-        loadDepthMap(filePath, callback);
-    } else {
-        console.log("No depth map found for directory:", depthDir);
-        if (callback) callback();
-    }
-}
 
 function updateTextEnvMap(envMap) {
     textMeshes.forEach(mesh => {
@@ -443,14 +478,6 @@ function removeSettings(cubeFolder) {
 
 function initGUI() {
     const gui = new GUI();
-    const textMaterial = textMeshes[0]?.material;
-    if (textMaterial) {
-        const textFolder = gui.addFolder('Text Material');
-        textFolder.addColor({ color: 0xffffff }, 'color').onChange(value => textMaterial.color.set(value));
-        textFolder.close();
-    } else {
-        console.error('Text material not found for GUI initialization.');
-    }
 
     const hdrFolder = gui.addFolder('HDRI');
     const hdrOptions = {
@@ -468,7 +495,7 @@ function initGUI() {
     // In your initGUI function, update the HDRI onChange handler:
     hdrFolder.add({ hdr: hdrOptions['Day'] }, 'hdr', hdrOptions).name('Select HDRI').onChange(value => {
         // prepend hdr/ocean_hdri to value
-        const path = `/hdr/ocean_hdri/${value}`;
+        const path = `${import.meta.env.BASE_URL}hdr/ocean_hdri/${value}`;
         loadHDRI(path);
     });
 
@@ -480,6 +507,12 @@ function initGUI() {
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
+
+    const dancerFolder = gui.addFolder('Dancer');
+    dancerFolder.add({ enabled: false }, 'enabled').name('Enable').onChange(value => {
+        value ? enableDancer() : disableDancer();
+    });
+    dancerFolder.open();
 
     const cubeFolder = gui.addFolder('Cube');
     cubeParams.enabled = false;
@@ -519,6 +552,3 @@ function onKeyUp(event) {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    setupAudio();
-});

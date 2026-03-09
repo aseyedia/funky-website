@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arta's World</title>
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="icon" type="image/x-icon" href="./favicon.ico">
     <link rel="stylesheet" href="styles.css">
     
     <!-- Standard Meta Tags -->
@@ -35,9 +35,9 @@
     <meta property="twitter:image:alt" content="Headshot of Arta Seyedian">
 
     <!-- Preload critical assets -->
-    <link rel="preload" href="/hdr/ocean_hdri/001/001.hdr" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="./hdr/ocean_hdri/001/001.hdr" as="fetch" crossorigin="anonymous">
     <link rel="preload" href="https://threejs.org/examples/textures/waternormals.jpg" as="image" crossorigin="anonymous">
-    <link rel="preload" href="/fresh_and_clean.mp3" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="./fresh_and_clean.mp3" as="fetch" crossorigin="anonymous">
     <link rel="preload" href="https://threejs.org/examples/fonts/helvetiker_regular.typeface.json" as="fetch" crossorigin="anonymous">
 
 
@@ -74,6 +74,22 @@
             background-color: #0f0;
             border-radius: 10px;
         }
+        #lazy-status {
+            display: none;
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.55);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 100;
+            pointer-events: none;
+            transition: opacity 0.6s ease;
+        }
     </style>
 </head>
 <body>
@@ -102,6 +118,7 @@
             <div id="loadingBar"></div>
         </div>
     </div>
+    <div id="lazy-status"></div>
 
     <script>
         function updateTipsPosition() {
@@ -168,9 +185,7 @@
                 }, 200); // Simulate loading time
             }
 
-            loadAssets(() => {
-                loadingScreen.style.display = 'none';
-            });
+            loadAssets(() => {});
 
             updateTipsPosition();
         });
