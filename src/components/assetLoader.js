@@ -21,12 +21,10 @@ class AssetLoader {
         this.fbxLoader = new FBXLoader(this.loadingManager);
     }
 
-    preload(progressCallback, completionCallback) {
+    preload(completionCallback) {
         const essentialAssets = [
             { type: 'textures', name: 'waterNormals', path: 'https://threejs.org/examples/textures/waternormals.jpg' },
-            { type: 'audio', name: 'backgroundMusic', path: '/fresh_and_clean.mp3' },
             { type: 'fonts', name: 'helvetiker', path: 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json' },
-            { type: 'models', name: 'character', path: '/Breakdance_Pack/Ch32_nonPBR.fbx' }
         ];
 
         let loadedCount = 0;
@@ -35,8 +33,6 @@ class AssetLoader {
         essentialAssets.forEach(asset => {
             this.loadAsset(asset.type, asset.name, asset.path, () => {
                 loadedCount++;
-                const progress = (loadedCount / totalCount) * 100;
-                if (progressCallback) progressCallback(progress);
                 if (loadedCount === totalCount) {
                     console.log('Essential assets loaded');
                     if (completionCallback) completionCallback();
@@ -69,18 +65,21 @@ class AssetLoader {
                 return;
         }
 
-        loader.load(path, 
+        loader.load(path,
             (asset) => {
                 console.log(`Loaded ${type} ${name}`);
                 if (type === 'models') {
                     this.processModel(asset);
+                    this.assets[type][name] = asset;
                 } else if (type === 'animations') {
                     this.processAnimation(name, asset);
+                    // processAnimation already stored the clip — don't overwrite with full FBX
+                } else {
+                    this.assets[type][name] = asset;
                 }
-                this.assets[type][name] = asset;
-                if (callback) callback(asset);
-            }, 
-            undefined, 
+                if (callback) callback(this.assets[type][name]);
+            },
+            undefined,
             (error) => {
                 console.error(`Error loading ${type} ${name}:`, error);
                 if (callback) callback(null);
@@ -99,9 +98,9 @@ class AssetLoader {
     }
 
     processAnimation(name, object) {
-        if (object.animations) {
-            this.assets.animations[name] = object.animations[0];
-        }
+        this.assets.animations[name] = (object.animations && object.animations.length > 0)
+            ? object.animations[0]
+            : null;
     }
 
     loadHDRI(name, path, callback) {
@@ -127,7 +126,7 @@ class AssetLoader {
     }
 
     loadFallbackHDRI(callback) {
-        const fallbackPath = '/hdr/fallback.hdr'; // Replace with an actual fallback HDRI path
+        const fallbackPath = `${import.meta.env.BASE_URL}hdr/fallback.hdr`;
         console.log('Attempting to load fallback HDRI:', fallbackPath);
         this.rgbeLoader.load(
             fallbackPath,
@@ -149,10 +148,24 @@ class AssetLoader {
 
     loadNextAnimation(animationPath, callback) {
         const name = animationPath.split('/').pop();
-        this.loadAsset('animations', name, animationPath, (asset) => {
-            if (asset) {
-                callback(asset);
-            }
+        if (name in this.assets.animations) {
+            callback(this.assets.animations[name]);
+            return;
+        }
+        this.loadAsset('animations', name, animationPath, (clip) => {
+            callback(clip);
+        });
+    }
+
+    loadCharacterModel(callback) {
+        const path = `${import.meta.env.BASE_URL}Breakdance_Pack/Ch32_nonPBR.fbx`;
+        const fbxLoader = new FBXLoader();
+        fbxLoader.load(path, (fbx) => {
+            this.processModel(fbx);
+            callback(fbx);
+        }, undefined, (err) => {
+            console.error('Failed to load character model:', err);
+            callback(null);
         });
     }
 }
