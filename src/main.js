@@ -31,9 +31,9 @@ let currentCube = null;
 const dancers = [];
 let dancersLoading = false;
 const DANCER_POSITIONS = [
-    { x: -25, y: 0, z: 45 },
-    { x:   0, y: 0, z: 55 },
-    { x:  25, y: 0, z: 45 },
+    { x: -25, y: 0, z: 15 },
+    { x:   0, y: 0, z: 20 },
+    { x:  25, y: 0, z: 15 },
 ];
 
 const danceAnimations = [
