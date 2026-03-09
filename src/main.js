@@ -231,6 +231,7 @@ function enableDancer() {
     }
     if (dancersLoading) return;
     dancersLoading = true;
+    showLazyStatus('dancers', 'loading dancers...');
 
     let remaining = DANCER_POSITIONS.length;
     DANCER_POSITIONS.forEach((pos, i) => {
@@ -245,7 +246,10 @@ function enableDancer() {
                 dancers.push(dancer);
                 playDancerNextAnimation(dancer);
             }
-            if (remaining === 0) dancersLoading = false;
+            if (remaining === 0) {
+                dancersLoading = false;
+                hideLazyStatus('dancers');
+            }
         });
     });
 }
