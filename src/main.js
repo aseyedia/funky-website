@@ -13,15 +13,18 @@ let previousTime = 0;
 const desiredFPS = 60;
 const frameDuration = 1000 / desiredFPS;
 
-// Initialize stats
-const stats = new Stats();
-stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
-document.body.appendChild(stats.dom);
+// FPS meter only when ?stats is in the URL (dev tool, not for visitors)
+const stats = new URLSearchParams(location.search).has('stats') ? new Stats() : null;
+if (stats) {
+    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    document.body.appendChild(stats.dom);
+}
 
 const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
 
-let scene, camera, renderer, controls, transformControl, pmremGenerator, sound, water;
+let scene, camera, renderer, controls, transformControl, sound, water;
+let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
@@ -37,40 +40,40 @@ const DANCER_POSITIONS = [
 ];
 
 const danceAnimations = [
-    "Breakdance_Pack/breakdance 1990.fbx",
-    "Breakdance_Pack/breakdance 1990 (2).fbx",
-    "Breakdance_Pack/breakdance 1990 (3).fbx",
-    "Breakdance_Pack/breakdance uprock.fbx",
-    "Breakdance_Pack/breakdance uprock (2).fbx",
-    "Breakdance_Pack/breakdance uprock var 1 start.fbx",
-    "Breakdance_Pack/breakdance uprock var 1.fbx",
-    "Breakdance_Pack/breakdance uprock var 1 end.fbx",
-    "Breakdance_Pack/breakdance uprock var 2.fbx",
-    "Breakdance_Pack/breakdance uprock to ground.fbx",
-    "Breakdance_Pack/breakdance uprock to ground (2).fbx",
-    "Breakdance_Pack/breakdance footwork 1.fbx",
-    "Breakdance_Pack/breakdance footwork 2.fbx",
-    "Breakdance_Pack/breakdance footwork 3.fbx",
-    "Breakdance_Pack/breakdance footwork to freeze.fbx",
-    "Breakdance_Pack/breakdance freezes.fbx",
-    "Breakdance_Pack/breakdance freeze var 1.fbx",
-    "Breakdance_Pack/breakdance freeze var 2.fbx",
-    "Breakdance_Pack/breakdance freeze var 3.fbx",
-    "Breakdance_Pack/breakdance freeze var 4.fbx",
-    "Breakdance_Pack/crossleg freeze.fbx",
-    "Breakdance_Pack/flair.fbx",
-    "Breakdance_Pack/flair (2).fbx",
-    "Breakdance_Pack/flair (3).fbx",
-    "Breakdance_Pack/breakdance swipes.fbx",
-    "Breakdance_Pack/brooklyn uprock.fbx",
-    "Breakdance_Pack/breakdance footwork to idle.fbx",
-    "Breakdance_Pack/breakdance footwork to idle (2).fbx",
-    "Breakdance_Pack/breakdance ready.fbx",
-    "Breakdance_Pack/breakdance ready (2).fbx",
-    "Breakdance_Pack/breakdance ready (3).fbx",
-    "Breakdance_Pack/breakdance ending 1.fbx",
-    "Breakdance_Pack/breakdance ending 2.fbx",
-    "Breakdance_Pack/breakdance ending 3.fbx",
+    "models/anims/breakdance 1990.glb",
+    "models/anims/breakdance 1990 (2).glb",
+    "models/anims/breakdance 1990 (3).glb",
+    "models/anims/breakdance uprock.glb",
+    "models/anims/breakdance uprock (2).glb",
+    "models/anims/breakdance uprock var 1 start.glb",
+    "models/anims/breakdance uprock var 1.glb",
+    "models/anims/breakdance uprock var 1 end.glb",
+    "models/anims/breakdance uprock var 2.glb",
+    "models/anims/breakdance uprock to ground.glb",
+    "models/anims/breakdance uprock to ground (2).glb",
+    "models/anims/breakdance footwork 1.glb",
+    "models/anims/breakdance footwork 2.glb",
+    "models/anims/breakdance footwork 3.glb",
+    "models/anims/breakdance footwork to freeze.glb",
+    "models/anims/breakdance freezes.glb",
+    "models/anims/breakdance freeze var 1.glb",
+    "models/anims/breakdance freeze var 2.glb",
+    "models/anims/breakdance freeze var 3.glb",
+    "models/anims/breakdance freeze var 4.glb",
+    "models/anims/crossleg freeze.glb",
+    "models/anims/flair.glb",
+    "models/anims/flair (2).glb",
+    "models/anims/flair (3).glb",
+    "models/anims/breakdance swipes.glb",
+    "models/anims/brooklyn uprock.glb",
+    "models/anims/breakdance footwork to idle.glb",
+    "models/anims/breakdance footwork to idle (2).glb",
+    "models/anims/breakdance ready.glb",
+    "models/anims/breakdance ready (2).glb",
+    "models/anims/breakdance ready (3).glb",
+    "models/anims/breakdance ending 1.glb",
+    "models/anims/breakdance ending 2.glb",
+    "models/anims/breakdance ending 3.glb",
 ];
 
 init();
@@ -126,9 +129,6 @@ function init() {
     scene.add(transformControl);
     transformControl.addEventListener('dragging-changed', event => controls.enabled = !event.value);
 
-    pmremGenerator = new THREE.PMREMGenerator(renderer);
-    pmremGenerator.compileEquirectangularShader();
-
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
     const loadingScreenTime = performance.now();
@@ -156,6 +156,7 @@ function setupScene() {
 
 function setupRenderer() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile() ? 1.5 : 2));
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -309,6 +310,7 @@ function createText(message, callback) {
         });
         textGeometry.computeBoundingBox();
         const centerOffsetX = -0.5 * (textGeometry.boundingBox.max.x - textGeometry.boundingBox.min.x);
+        // No explicit envMap — the material picks up scene.environment automatically.
         const textMaterial = new THREE.MeshPhysicalMaterial({
             color: 0xffffff,
             metalness: params.metalness,
@@ -317,8 +319,7 @@ function createText(message, callback) {
             clearcoat: 1.0,
             clearcoatRoughness: 0,
             ior: 1.5,
-            reflectivity: 1.0,
-            envMap: scene.environment
+            reflectivity: 1.0
         });
         const textMesh = new THREE.Mesh(textGeometry, textMaterial);
         textMesh.position.set(centerOffsetX, 10, 0);
@@ -384,8 +385,7 @@ function animate(currentTime) {
     const deltaTime = currentTime - previousTime;
     
     if (deltaTime >= frameDuration) {
-        // Start stats recording
-        stats.begin();
+        if (stats) stats.begin();
 
         controls.update();
 
@@ -397,8 +397,7 @@ function animate(currentTime) {
 
         renderer.render(scene, camera);
 
-        // End stats recording
-        stats.end();
+        if (stats) stats.end();
 
         previousTime = currentTime - (deltaTime % frameDuration);
     }
@@ -414,30 +413,16 @@ function loadHDRI(path, callback) {
             return;
         }
 
-        const hdrRenderTarget = pmremGenerator.fromEquirectangular(texture);
-        scene.environment = hdrRenderTarget.texture;
-        scene.background = hdrRenderTarget.texture;
-
-        scene.environment.needsUpdate = true;
-        scene.background.needsUpdate = true;
-
-        updateTextEnvMap(hdrRenderTarget.texture);
-
-        scene.traverse(child => {
-            if (child.isMesh) {
-                child.material.needsUpdate = true;
-            }
-        });
+        // Full-res equirect as the sky (much sharper than the old 256px PMREM
+        // cubemap); the renderer PMREMs scene.environment internally and caches it.
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        const oldSky = currentSkyTexture;
+        scene.background = texture;
+        scene.environment = texture;
+        currentSkyTexture = texture;
+        if (oldSky && oldSky !== texture) oldSky.dispose(); // frees GPU memory (leaked before)
 
         if (callback) callback();
-    });
-}
-
-
-function updateTextEnvMap(envMap) {
-    textMeshes.forEach(mesh => {
-        mesh.material.envMap = envMap;
-        mesh.material.needsUpdate = true;
     });
 }
 

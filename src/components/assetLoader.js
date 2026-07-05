@@ -1,5 +1,7 @@
 import { RGBELoader } from 'three/examples/jsm/loaders/RGBELoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import * as THREE from 'three';
 import { FontLoader } from 'three/addons/loaders/FontLoader.js';
 
@@ -18,13 +20,15 @@ class AssetLoader {
         this.textureLoader = new THREE.TextureLoader(this.loadingManager);
         this.audioLoader = new THREE.AudioLoader(this.loadingManager);
         this.fontLoader = new FontLoader(this.loadingManager);
-        this.fbxLoader = new FBXLoader(this.loadingManager);
+        this.gltfLoader = new GLTFLoader(this.loadingManager);
+        this.gltfLoader.setMeshoptDecoder(MeshoptDecoder);
+        this.characterPromise = null;
     }
 
     preload(completionCallback) {
         const essentialAssets = [
-            { type: 'textures', name: 'waterNormals', path: 'https://threejs.org/examples/textures/waternormals.jpg' },
-            { type: 'fonts', name: 'helvetiker', path: 'https://threejs.org/examples/fonts/helvetiker_regular.typeface.json' },
+            { type: 'textures', name: 'waterNormals', path: `${import.meta.env.BASE_URL}textures/waternormals.jpg` },
+            { type: 'fonts', name: 'helvetiker', path: `${import.meta.env.BASE_URL}fonts/helvetiker_regular.typeface.json` },
         ];
 
         let loadedCount = 0;
@@ -58,7 +62,7 @@ class AssetLoader {
                 break;
             case 'models':
             case 'animations':
-                loader = this.fbxLoader;
+                loader = this.gltfLoader;
                 break;
             default:
                 console.error('Unknown asset type:', type);
@@ -69,11 +73,11 @@ class AssetLoader {
             (asset) => {
                 console.log(`Loaded ${type} ${name}`);
                 if (type === 'models') {
-                    this.processModel(asset);
-                    this.assets[type][name] = asset;
+                    this.processModel(asset.scene);
+                    this.assets[type][name] = asset.scene;
                 } else if (type === 'animations') {
                     this.processAnimation(name, asset);
-                    // processAnimation already stored the clip — don't overwrite with full FBX
+                    // processAnimation already stored the clip — don't overwrite with full glTF
                 } else {
                     this.assets[type][name] = asset;
                 }
@@ -88,7 +92,8 @@ class AssetLoader {
     }
 
     processModel(model) {
-        model.scale.setScalar(0.1);
+        // glTF is in meters (~1.76m tall); scene works in the old FBX-derived scale (~17.6 units)
+        model.scale.setScalar(10);
         model.traverse((child) => {
             if (child.isMesh) {
                 child.castShadow = true;
@@ -97,24 +102,18 @@ class AssetLoader {
         });
     }
 
-    processAnimation(name, object) {
-        this.assets.animations[name] = (object.animations && object.animations.length > 0)
-            ? object.animations[0]
+    processAnimation(name, gltf) {
+        this.assets.animations[name] = (gltf.animations && gltf.animations.length > 0)
+            ? gltf.animations[0]
             : null;
     }
 
     loadHDRI(name, path, callback) {
-        if (this.assets.hdris[name]) {
-            if (callback) callback(this.assets.hdris[name]);
-            return;
-        }
-
         console.log(`Attempting to load HDRI: ${path}`);
         this.rgbeLoader.load(
             path,
             (texture) => {
                 console.log(`HDRI loaded successfully: ${name}`);
-                this.assets.hdris[name] = texture;
                 if (callback) callback(texture);
             },
             undefined,
@@ -157,15 +156,22 @@ class AssetLoader {
         });
     }
 
+    // Loads the character once, then hands out skeleton-aware clones (one per dancer).
     loadCharacterModel(callback) {
-        const path = `${import.meta.env.BASE_URL}Breakdance_Pack/Ch32_nonPBR.fbx`;
-        const fbxLoader = new FBXLoader();
-        fbxLoader.load(path, (fbx) => {
-            this.processModel(fbx);
-            callback(fbx);
-        }, undefined, (err) => {
-            console.error('Failed to load character model:', err);
-            callback(null);
+        if (!this.characterPromise) {
+            const path = `${import.meta.env.BASE_URL}models/dancer.glb`;
+            this.characterPromise = new Promise((resolve) => {
+                this.gltfLoader.load(path, (gltf) => {
+                    this.processModel(gltf.scene);
+                    resolve(gltf.scene);
+                }, undefined, (err) => {
+                    console.error('Failed to load character model:', err);
+                    resolve(null);
+                });
+            });
+        }
+        this.characterPromise.then((base) => {
+            callback(base ? SkeletonUtils.clone(base) : null);
         });
     }
 }

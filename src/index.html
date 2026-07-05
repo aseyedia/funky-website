@@ -28,17 +28,16 @@
     <meta name="twitter:title" content="Arta Seyedian's Website">
     <meta name="twitter:description" content="Discover the work and accomplishments of Arta Seyedian.">
     <!-- Add a twitter:image when you have a representative image for your site -->
-    <meta name="twitter:image" content="https://artaseyedian.com/arta-headshot-preview.png" style="vertical-align: top;">
+    <meta name="twitter:image" content="https://artaseyedian.com/arta-headshot-preview.png">
     <meta property="twitter:image" content="https://artaseyedian.com/arta-headshot-preview.png">
     <!-- <meta property="twitter:image:width" content="1200">
     <meta property="twitter:image:height" content="630"> -->
     <meta property="twitter:image:alt" content="Headshot of Arta Seyedian">
 
-    <!-- Preload critical assets -->
+    <!-- Preload critical assets (audio is lazy-loaded after first render, no preload) -->
     <link rel="preload" href="./hdr/ocean_hdri/001/001.hdr" as="fetch" crossorigin="anonymous">
-    <link rel="preload" href="https://threejs.org/examples/textures/waternormals.jpg" as="image" crossorigin="anonymous">
-    <link rel="preload" href="./fresh_and_clean.mp3" as="fetch" crossorigin="anonymous">
-    <link rel="preload" href="https://threejs.org/examples/fonts/helvetiker_regular.typeface.json" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="./textures/waternormals.jpg" as="image">
+    <link rel="preload" href="./fonts/helvetiker_regular.typeface.json" as="fetch" crossorigin="anonymous">
 
 
     <style>
