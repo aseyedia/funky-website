@@ -13,8 +13,16 @@ I always wanted to make a funky website. You can view it [here](https://www.arta
 
 - [Three.js](https://threejs.org/): For rendering 3D graphics in the browser.
 - [Vite](https://vitejs.dev/): As the build tool for fast development and production builds.
-- [Express](https://expressjs.com/): To serve the website and handle backend logic.
-- [dat.GUI](https://github.com/dataarts/dat.gui): For the interactive GUI elements.
+- [lil-gui](https://lil-gui.georgealways.com/) (bundled with three.js): For the interactive GUI elements.
+
+## Architecture
+
+- `src/` — application code (vanilla three.js, no framework).
+- `src/public/` — static assets (HDRIs, FBX animations, audio, fonts, textures). Vite copies these into the build verbatim. Large binaries (`hdr/`, `Breakdance_Pack/`) are gitignored — track them with git-lfs if needed.
+- `dist/` — build output. In production it is mounted at `/funky/` by the `professional-site` Express app (port 3000), which nginx proxies for artaseyedian.com.
+- HDRIs are pre-downscaled to 1024x512 — the PMREM environment map is only a 256px cubemap, so larger sources are wasted bandwidth. Original 4k masters live outside the build.
+
+Deploying = `npm run build` (output goes live immediately since `dist/` is served directly).
 
 ## Getting Started
 
