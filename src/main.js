@@ -26,6 +26,7 @@ console.log('Script start time:', performanceStart);
 let scene, camera, renderer, controls, transformControl, sound, water;
 let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
 let analyser = null;
+let bassSmooth = 0; // slow-moving bass baseline, used to isolate beat transients
 const audioParams = { volume: 0.5 };
 
 const textMeshes = [];
@@ -438,14 +439,18 @@ function animate(currentTime) {
             water.material.uniforms['time'].value += 1.0 / desiredFPS;
         }
 
-        // Music-reactive: bass pulses the text and stirs the water
+        // Music-reactive: kick hits bounce the text, bass stirs the water.
+        // Pulsing on the transient (bass above its own moving average) instead of
+        // raw level makes each beat pop rather than the text sitting enlarged.
         if (analyser && sound && sound.isPlaying) {
             const freq = analyser.getFrequencyData();
             let bass = 0;
             for (let i = 0; i < 8; i++) bass += freq[i];
             bass /= 8 * 255;
-            textMeshes.forEach(m => m.scale.setScalar(1 + bass * 0.06));
-            if (water) water.material.uniforms['distortionScale'].value = 3.7 + bass * 2.5;
+            bassSmooth = bassSmooth * 0.92 + bass * 0.08;
+            const punch = Math.max(0, bass - bassSmooth) * 4;
+            textMeshes.forEach(m => m.scale.set(1 + punch * 0.2, 1 + punch * 0.6, 1 + punch * 0.2));
+            if (water) water.material.uniforms['distortionScale'].value = 3.7 + bass * 4;
         }
 
         dancers.forEach(d => d.mixer.update(deltaTime / 1000));
