@@ -30,6 +30,8 @@ let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
 let analyser = null;
 let bassSmooth = 0; // slow-moving bass baseline, used to isolate beat transients
 let currentBass = 0;
+let fadeProgress = 1; // 0..1, ramps up in the render loop after each play()
+const FADE_SECONDS = 2.5;
 const audioParams = { volume: 0.5 };
 let clouds = null;
 let flight = null;
@@ -235,14 +237,13 @@ function setupAudio(onLoaded) {
         if (!playing) resetMusicVisuals();
     }
 
-    // Fade in over 2.5s instead of the old hard start
+    // Fade driven from the render loop. Web Audio gain ramps scheduled in the
+    // same task as context.resume() get dropped by Chromium (timeline not
+    // ticking yet) — gain froze at 0 and the first play was silent.
     function fadeIn() {
-        const ctx = listener.context;
-        const gain = sound.gain.gain;
-        gain.cancelScheduledValues(ctx.currentTime);
-        gain.setValueAtTime(0, ctx.currentTime);
+        fadeProgress = 0;
+        sound.setVolume(0);
         sound.play();
-        gain.linearRampToValueAtTime(audioParams.volume, ctx.currentTime + 2.5);
     }
 
     function startMusic() {
@@ -481,6 +482,11 @@ function animate(currentTime) {
             }
         }
 
+        if (sound && sound.isPlaying && fadeProgress < 1) {
+            fadeProgress = Math.min(1, fadeProgress + dt / FADE_SECONDS);
+            sound.setVolume(audioParams.volume * fadeProgress);
+        }
+
         // Music-reactive: kick hits bounce the text, bass stirs the water.
         // Pulsing on the transient (bass above its own moving average) instead of
         // raw level makes each beat pop rather than the text sitting enlarged.
@@ -613,7 +619,7 @@ function initGUI() {
 
     const audioFolder = gui.addFolder('Audio');
     audioFolder.add(audioParams, 'volume', 0, 1).name('Volume').onChange(v => {
-        if (sound) sound.setVolume(v);
+        if (sound) sound.setVolume(v * fadeProgress);
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
