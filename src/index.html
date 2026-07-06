@@ -89,6 +89,48 @@
             pointer-events: none;
             transition: opacity 0.6s ease;
         }
+
+        #music-toggle {
+            position: fixed;
+            right: 12px;
+            bottom: 14px;
+            display: none;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 0, 0.35);
+            border-radius: 20px;
+            color: #ff0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 7px 14px;
+            z-index: 100;
+            cursor: pointer;
+            transition: border-color 0.3s ease;
+        }
+        #music-toggle.ready { display: flex; }
+        #music-toggle:hover { border-color: #ff0; }
+        #music-toggle .eq {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 12px;
+        }
+        #music-toggle .eq i {
+            width: 3px;
+            height: 3px;
+            background: #ff0;
+            border-radius: 1px;
+        }
+        #music-toggle.playing .eq i {
+            animation: eq-bounce 0.9s ease-in-out infinite;
+        }
+        #music-toggle.playing .eq i:nth-child(2) { animation-delay: 0.25s; }
+        #music-toggle.playing .eq i:nth-child(3) { animation-delay: 0.5s; }
+        @keyframes eq-bounce {
+            0%, 100% { height: 3px; }
+            50% { height: 12px; }
+        }
     </style>
 </head>
 <body>
@@ -118,6 +160,10 @@
         </div>
     </div>
     <div id="lazy-status"></div>
+    <button id="music-toggle" aria-label="Toggle music" title="Fresh and Clean — OutKast">
+        <span class="eq"><i></i><i></i><i></i></span>
+        <span class="label">play music</span>
+    </button>
 
     <script>
         function updateTipsPosition() {

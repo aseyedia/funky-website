@@ -25,6 +25,8 @@ console.log('Script start time:', performanceStart);
 
 let scene, camera, renderer, controls, transformControl, sound, water;
 let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
+let analyser = null;
+const audioParams = { volume: 0.5 };
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
@@ -190,29 +192,72 @@ function setupAudio(onLoaded) {
 
     sound = new THREE.Audio(listener);
     const audioLoader = new THREE.AudioLoader();
+    const btn = document.getElementById('music-toggle');
+
+    function setBtnPlaying(playing) {
+        btn.classList.toggle('playing', playing);
+        btn.querySelector('.label').textContent = playing ? 'pause' : 'play music';
+        if (!playing) resetMusicVisuals();
+    }
+
+    // Fade in over 2.5s instead of the old hard start
+    function fadeIn() {
+        const ctx = listener.context;
+        const gain = sound.gain.gain;
+        gain.cancelScheduledValues(ctx.currentTime);
+        gain.setValueAtTime(0, ctx.currentTime);
+        sound.play();
+        gain.linearRampToValueAtTime(audioParams.volume, ctx.currentTime + 2.5);
+    }
+
+    function startMusic() {
+        listener.context.resume().then(() => {
+            if (!sound.isPlaying) fadeIn();
+            setBtnPlaying(true);
+        });
+        removeGestureListeners();
+    }
+
+    const onFirstGesture = () => startMusic();
+    function removeGestureListeners() {
+        document.removeEventListener('click', onFirstGesture);
+        document.removeEventListener('keydown', onFirstGesture);
+    }
 
     audioLoader.load(`${import.meta.env.BASE_URL}fresh_and_clean.mp3`, buffer => {
         sound.setBuffer(buffer);
         sound.setLoop(true);
-        sound.setVolume(0.5);
+        analyser = new THREE.AudioAnalyser(sound, 64);
         if (onLoaded) onLoaded();
+        btn.classList.add('ready');
+
+        btn.addEventListener('click', e => {
+            e.stopPropagation(); // keep the global first-gesture handler from double-firing
+            if (sound.isPlaying) {
+                sound.pause();
+                setBtnPlaying(false);
+                removeGestureListeners();
+            } else {
+                startMusic();
+            }
+        });
+
         if (listener.context.state === 'suspended') {
-            document.addEventListener('click', resumeAudioContext);
-            document.addEventListener('keydown', resumeAudioContext);
+            // autoplay is blocked until a gesture; first interaction anywhere starts the music
+            document.addEventListener('click', onFirstGesture);
+            document.addEventListener('keydown', onFirstGesture);
         } else {
-            sound.play();
+            fadeIn();
+            setBtnPlaying(true);
         }
     }, undefined, () => {
         if (onLoaded) onLoaded(); // hide status even on error
     });
+}
 
-    function resumeAudioContext() {
-        listener.context.resume().then(() => {
-            sound.play();
-            document.removeEventListener('click', resumeAudioContext);
-            document.removeEventListener('keydown', resumeAudioContext);
-        });
-    }
+function resetMusicVisuals() {
+    textMeshes.forEach(m => m.scale.setScalar(1));
+    if (water) water.material.uniforms['distortionScale'].value = 3.7;
 }
 
 function setupObjects(callback) {
@@ -393,6 +438,16 @@ function animate(currentTime) {
             water.material.uniforms['time'].value += 1.0 / desiredFPS;
         }
 
+        // Music-reactive: bass pulses the text and stirs the water
+        if (analyser && sound && sound.isPlaying) {
+            const freq = analyser.getFrequencyData();
+            let bass = 0;
+            for (let i = 0; i < 8; i++) bass += freq[i];
+            bass /= 8 * 255;
+            textMeshes.forEach(m => m.scale.setScalar(1 + bass * 0.06));
+            if (water) water.material.uniforms['distortionScale'].value = 3.7 + bass * 2.5;
+        }
+
         dancers.forEach(d => d.mixer.update(deltaTime / 1000));
 
         renderer.render(scene, camera);
@@ -491,8 +546,8 @@ function initGUI() {
     hdrFolder.close();
 
     const audioFolder = gui.addFolder('Audio');
-    audioFolder.add({ mute: false }, 'mute').name('Mute').onChange(value => {
-        sound.setVolume(value ? 0 : 0.5);
+    audioFolder.add(audioParams, 'volume', 0, 1).name('Volume').onChange(v => {
+        if (sound) sound.setVolume(v);
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
