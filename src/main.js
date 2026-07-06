@@ -7,6 +7,8 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 import AssetLoader from './components/assetLoader.js';
+import { CloudField } from './components/clouds.js';
+import { FlightControls } from './components/flight.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 let previousTime = 0;
@@ -27,7 +29,11 @@ let scene, camera, renderer, controls, transformControl, sound, water;
 let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
 let analyser = null;
 let bassSmooth = 0; // slow-moving bass baseline, used to isolate beat transients
+let currentBass = 0;
 const audioParams = { volume: 0.5 };
+let clouds = null;
+let flight = null;
+const cloudParams = { enabled: true, density: 1.0 };
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
@@ -132,6 +138,28 @@ function init() {
     scene.add(transformControl);
     transformControl.addEventListener('dragging-changed', event => controls.enabled = !event.value);
 
+    clouds = new CloudField();
+    clouds.applyPreset('001'); // matches the default Day HDRI
+    scene.add(clouds.group);
+
+    flight = new FlightControls(camera, renderer.domElement, {
+        onEnter: () => {
+            controls.enabled = false;
+            document.getElementById('flight-hint').classList.add('active');
+            document.getElementById('crosshair').classList.add('active');
+        },
+        onExit: () => {
+            // re-aim the orbit pivot just ahead of wherever flight left us
+            const fwd = new THREE.Vector3();
+            camera.getWorldDirection(fwd);
+            // 120 sits inside OrbitControls' min/max distance band — no snap on exit
+            controls.target.copy(camera.position).addScaledVector(fwd, 120);
+            controls.enabled = true;
+            document.getElementById('flight-hint').classList.remove('active');
+            document.getElementById('crosshair').classList.remove('active');
+        },
+    });
+
     window.addEventListener('resize', onWindowResize, false);
     console.log("Initial setup complete");
     const loadingScreenTime = performance.now();
@@ -140,6 +168,11 @@ function init() {
     // Add key event listeners
     window.addEventListener('keydown', transformKey, false);
     window.addEventListener('keyup', onKeyUp, false);
+    window.addEventListener('keydown', e => {
+        if (e.code !== 'KeyF' || e.repeat) return;
+        if (e.target.tagName === 'INPUT') return; // lil-gui fields
+        flight.enabled ? flight.exit() : flight.enter();
+    }, false);
 }
 
 function isMobile() {
@@ -149,7 +182,8 @@ function isMobile() {
 
 function setupCamera() {
     const fov = isMobile() ? 80 : 40;
-    camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 1000);
+    // far plane covers the cloud tile + deck fade so nothing clips mid-flight
+    camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 8000);
     camera.position.set(0, 30, 100);
 }
 
@@ -257,6 +291,7 @@ function setupAudio(onLoaded) {
 }
 
 function resetMusicVisuals() {
+    currentBass = 0;
     textMeshes.forEach(m => m.scale.setScalar(1));
     if (water) water.material.uniforms['distortionScale'].value = 3.7;
 }
@@ -433,10 +468,17 @@ function animate(currentTime) {
     if (deltaTime >= frameDuration) {
         if (stats) stats.begin();
 
-        controls.update();
+        const dt = deltaTime / 1000;
+        flight.update(dt);
+        if (!flight.enabled) controls.update();
 
-        if (water && water.material.uniforms['time']) {
-            water.material.uniforms['time'].value += 1.0 / desiredFPS;
+        if (water) {
+            // infinite ocean: keep the plane centered under the camera
+            water.position.x = camera.position.x;
+            water.position.z = camera.position.z;
+            if (water.material.uniforms['time']) {
+                water.material.uniforms['time'].value += 1.0 / desiredFPS;
+            }
         }
 
         // Music-reactive: kick hits bounce the text, bass stirs the water.
@@ -447,13 +489,19 @@ function animate(currentTime) {
             let bass = 0;
             for (let i = 0; i < 8; i++) bass += freq[i];
             bass /= 8 * 255;
+            currentBass = bass;
             bassSmooth = bassSmooth * 0.92 + bass * 0.08;
             const punch = Math.max(0, bass - bassSmooth) * 4;
             textMeshes.forEach(m => m.scale.set(1 + punch * 0.2, 1 + punch * 0.6, 1 + punch * 0.2));
             if (water) water.material.uniforms['distortionScale'].value = 3.7 + bass * 4;
         }
 
-        dancers.forEach(d => d.mixer.update(deltaTime / 1000));
+        clouds.update(currentTime / 1000, camera, currentBass);
+        const washEl = document.getElementById('cloud-wash');
+        washEl.style.opacity = (clouds.washDensity * 0.92).toFixed(3);
+        washEl.style.background = `rgb(${clouds.washColor})`;
+
+        dancers.forEach(d => d.mixer.update(dt));
 
         renderer.render(scene, camera);
 
@@ -546,9 +594,22 @@ function initGUI() {
         // prepend hdr/ocean_hdri to value
         const path = `${import.meta.env.BASE_URL}hdr/ocean_hdri/${value}`;
         loadHDRI(path);
+        clouds.applyPreset(value.split('/').pop().replace('.hdr', ''));
     });
 
     hdrFolder.close();
+
+    const skyFolder = gui.addFolder('Clouds');
+    skyFolder.add(cloudParams, 'enabled').name('Enable').onChange(v => clouds.setUserEnabled(v));
+    skyFolder.add(cloudParams, 'density', 0, 1).name('Density').onChange(v => clouds.setDensity(v));
+    skyFolder.close();
+
+    if (!isMobile()) {
+        const flightFolder = gui.addFolder('Flight');
+        flightFolder.add({ fly: () => flight.enter() }, 'fly').name('Take off (F)');
+        flightFolder.add(flight, 'baseSpeed', 5, 400).name('Speed').listen();
+        flightFolder.open();
+    }
 
     const audioFolder = gui.addFolder('Audio');
     audioFolder.add(audioParams, 'volume', 0, 1).name('Volume').onChange(v => {
@@ -590,12 +651,14 @@ function initGUI() {
 }
 
 function transformKey(event) {
+    if (flight && flight.enabled) return; // W/E/R belong to movement while flying
     if (currentCube && ['w', 'e', 'r'].includes(event.key)) {
         attachTransformControls(currentCube, event.key);
     }
 }
 
 function onKeyUp(event) {
+    if (flight && flight.enabled) return;
     if (['w', 'e', 'r'].includes(event.key)) {
         detachTransformControls();
     }

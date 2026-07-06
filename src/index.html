@@ -131,6 +131,49 @@
             0%, 100% { height: 3px; }
             50% { height: 12px; }
         }
+
+        /* inside-a-cloud screen wash — opacity driven per-frame from JS */
+        #cloud-wash {
+            position: fixed;
+            inset: 0;
+            background: rgb(255, 255, 255);
+            opacity: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        #flight-hint {
+            position: fixed;
+            bottom: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: none;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 0, 0.35);
+            border-radius: 20px;
+            color: #ff0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 7px 14px;
+            z-index: 100;
+            pointer-events: none;
+        }
+        #flight-hint.active { display: block; }
+
+        #crosshair {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 4px;
+            height: 4px;
+            margin: -2px 0 0 -2px;
+            border-radius: 50%;
+            background: rgba(255, 255, 0, 0.8);
+            display: none;
+            z-index: 100;
+            pointer-events: none;
+        }
+        #crosshair.active { display: block; }
     </style>
 </head>
 <body>
@@ -160,6 +203,9 @@
         </div>
     </div>
     <div id="lazy-status"></div>
+    <div id="cloud-wash"></div>
+    <div id="flight-hint">WASD fly &middot; space/c up/down &middot; shift boost &middot; scroll speed &middot; esc exit</div>
+    <div id="crosshair"></div>
     <button id="music-toggle" aria-label="Toggle music" title="Fresh and Clean — OutKast">
         <span class="eq"><i></i><i></i><i></i></span>
         <span class="label">play music</span>
