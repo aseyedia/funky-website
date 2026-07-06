@@ -4,9 +4,8 @@ node_modules/
 # Build output (served in prod by professional-site at /funky/)
 dist/
 
-# Large binary assets — too big for plain git; 4k masters archived at
-# /mnt/4TB_SSD/backups/funky-website/. Use git-lfs to track these.
-src/public/hdr/
+# HDRs tracked via git-lfs (see .gitattributes); 4k masters archived at
+# /mnt/4TB_SSD/backups/funky-website/
 
 # Logs / env / editor
 *.log
