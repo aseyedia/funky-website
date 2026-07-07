@@ -278,6 +278,82 @@ Reolink cams, HL-2140 printer — all on Tailscale):
 - Anything IoT-inbound (website → server actions beyond printing): don't.
   Outbound telemetry only; admin stays Tailscale-side.
 
+## Phase 7 — the god-head (longshot arc)
+
+Concept: a floating bust of Arta's head in the sky — deliberately low-poly /
+PS1-pixelated (bad is the aesthetic), mouth flapping, and once per visitor per
+day it speaks a blessing in Arta's actual voice (ElevenLabs voice clone
+already exists). This is the "okay, he has a personality" moment.
+
+### 7.0 Getting the head  — human task, no model needed
+- Capture: phone photogrammetry app (Polycam / KIRI Engine / RealityScan,
+  all have free tiers) → export mesh; or Blender **FaceBuilder** addon from
+  ~5 photos. Quality does not matter — pixelation hides every sin.
+- Blender cleanup (~15 min): decimate to ≤ 10k tris, bake one diffuse
+  texture, add ONE shape key `mouthOpen` (select jaw verts, pull down),
+  export GLB. That single morph target is the entire facial rig.
+- PS1 look: `NearestFilter` on the texture + low poly count is enough.
+  No postprocessing pass needed.
+
+### 7.1 Floating head + flappy mouth  — model: Opus
+- Head floats high over the scene (y ≈ 250), slow bob + rotate; head does
+  `lookAt(camera)` with damped slerp — eyes following the visitor is 90% of
+  the personality for ~5 lines of code.
+- **Lip sync = amplitude, not visemes.** Play blessing mp3 through its own
+  THREE.Audio + AudioAnalyser (separate from music); each frame drive
+  `mesh.morphTargetInfluences[mouthOpen]` from smoothed amplitude. Flappy
+  Muppet mouth is the bit. Do NOT build a viseme pipeline (Rhubarb etc.) —
+  wrong effort/reward ratio here.
+- **Tier 1 ships the whole dream with ZERO runtime keys**: pre-generate
+  ~20 blessing mp3s with ElevenLabs once (by hand, in their web UI), ship
+  as static files in `src/public/audio/blessings/`. Gate: localStorage
+  date stamp = once per visitor per day; returning same-day visitors see
+  the head but it stays serene. Music ducks (setVolume, render loop — see
+  d7cb8db note) while the head speaks.
+- Acceptance: first visit of the day → head turns to you, mouth moves in
+  sync, voice plays; second visit → silent head still tracks camera;
+  music ducks and recovers; mobile OK (tap fallback for autoplay policy —
+  reuse the music-pill gesture pattern).
+
+### 7.2 Live AI blessings  — model: Opus (server component)
+- Tier 2, only after 7.1 works. `POST /funky/api/blessing` in
+  `~/professional-site/app.js` (same sanctioned-exception + guardrail set
+  as 5.2): OpenRouter cheap model writes a 1–2 sentence blessing →
+  ElevenLabs TTS API (their cheapest/Flash-class model) → stream audio back.
+- **ElevenLabs has no standalone LLM** — their "Agents" product bundles an
+  LLM+voice pipeline but is overkill and pricier; chain
+  OpenRouter → ElevenLabs instead.
+- Guardrails on top of 5.2's: 1 generation per IP per day, cache audio by
+  text hash (repeat texts cost zero), ElevenLabs character quota is
+  hard-capped by plan tier anyway, monthly spend caps on BOTH dashboards.
+  Endpoint dies → fall back to tier-1 canned mp3s. Degrades, never breaks.
+- No user data in prompts. Blessing seeds allowed: time of day, sky preset,
+  book title from 7.3. Nothing else.
+
+### 7.3 The head has read a book  — model: Sonnet (after 7.2)
+- Hardcover.app GraphQL API (bearer token, server-side env var): fetch
+  "currently reading" title/author, cache 24h in memory. Blessing template:
+  "I've been reading <title> lately — <canned or generated sentence>."
+  Book title is the only personal data exposed — that's fine, it's a flex.
+- **Kobo highlights via Obsidian: tempting, but NO live vault reads** —
+  same rule as 5.2 (vault is off-limits to public-facing AI). Sanctioned
+  version if ever wanted: human hand-picks favorite highlights into a
+  `quotes.json` committed to this repo. Export, not integration.
+
+### 7.x bounce-off backlog (unspec'd)
+- **Blink + idle life**: second shape key `blink`, random 3–7s; faint hum
+  or breath loop when idle. Cheap, huge.
+- **Oracle mode**: click the head, ask a yes/no question, Magic-8-ball
+  canned answers in the 5.1 speech bubble. Zero API, pure personality.
+- **`?recruiter=1`**: head delivers a 15-second elevator pitch mp3 on
+  arrival, portfolio islands pulse. Link this URL on the resume.
+- **Blessing counter**: "6,401 blessings bestowed" etched on a floating
+  stone (tiny counter endpoint, same rules as visitor-trails idea).
+- **Now-listening**: ListenBrainz/Last.fm scrobble (server-side, cached
+  24h like 7.3) → head occasionally mentions what Arta's playing.
+- **Weather-mirror sky**: open-meteo (keyless API) for Philly → default
+  sky preset matches Arta's actual weather. Pairs with time-of-day idea.
+
 ---
 
 ## Execution advice (for the human)
