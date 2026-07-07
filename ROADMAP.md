@@ -1,0 +1,212 @@
+# funky-website Roadmap
+
+Feature plan written 2026-07-06 (Claude Fable 5) for execution by later Claude
+sessions (Opus / Sonnet). Each task is self-contained, ordered by
+value-per-effort, and tagged with a recommended executor model. Do ONE task
+per session, verify in the browser, commit, then stop.
+
+---
+
+## Architecture crash course (read this first, every session)
+
+- **Stack**: vanilla three.js 0.165 + vite. No framework. `src/main.js` is the
+  app; components in `src/components/` (assetLoader, clouds, flight, cube).
+- **Deploy = `npm run build`.** Output lands in `dist/`, which is served LIVE
+  at artaseyedian.com/funky/ by `~/professional-site/app.js` (Express, port
+  3000, mounted at `/funky`). There is no staging. A build is a deploy.
+- **After every build**: delete stale hashed bundles from `dist/assets/`
+  (keep only the js file referenced by `dist/index.html` and the css).
+  `ls` is aliased to eza on this box — use `command ls` in scripts.
+- **Assets**: `src/public/` is the vite publicDir (copied verbatim into dist).
+  HDRs are git-lfs tracked. 4k HDR masters + original FBX live in
+  `/mnt/4TB_SSD/backups/funky-website/src-dist-masters-2026-07-05.tar`.
+- **Dancer pipeline**: model `src/public/models/dancer.glb` (meshopt), 34
+  animation clips in `src/public/models/anims/*.glb`. Loaded with GLTFLoader +
+  MeshoptDecoder; dancers are SkeletonUtils.clone()s of one base scene,
+  scale ×10 (glTF meters vs scene units). Conversion pipeline if ever needed
+  again: npm packages `fbx2gltf` + `@gltf-transform/cli` (see git history).
+- **Sky**: `scene.background` = raw 2k HDR equirect (sharp), `scene.environment`
+  = same texture (renderer PMREMs internally). On HDRI switch the old texture
+  is disposed (`currentSkyTexture` in main.js). Clouds: `components/clouds.js`,
+  one instanced billboard draw + one FBM deck plane, per-HDRI presets in
+  `CLOUD_PRESETS` keyed by hdr basename ('001'…'008', 'memorial').
+- **Flight**: `components/flight.js`, PointerLockControls wrapper. F to enter,
+  ESC exits, OrbitControls take over with pivot re-aimed 120 units ahead
+  (must stay ≥ minDistance 90). W/E/R cube-gizmo keys are suppressed in flight.
+- **Audio**: THREE.Audio + AudioAnalyser in main.js. `currentBass` (0..1) and
+  transient `punch` already computed each frame — reuse them, don't add a
+  second analyser. Volume fades are stepped via `sound.setVolume()` in the
+  render loop — NEVER use AudioParam ramps near `context.resume()`
+  (Chromium drops them; that bug already shipped once, commit d7cb8db).
+- **Frame loop**: `animate()` throttles to 60fps; `dt` seconds available
+  inside the throttle block. First frame has NaN deltaTime by design (skipped).
+- **Perf budget**: integrated GPU target. pixelRatio capped (1.5 mobile /
+  2 desktop). Adding > ~3 draw calls or any per-pixel raymarching needs a
+  GUI quality toggle defaulting OFF.
+- **Verification limits**: GLSL cannot be compile-checked headless — after any
+  shader change, the human must load the page and check the console. Say so
+  in your handoff message. `npm run build` only catches JS parse errors.
+- **Style**: no comments narrating what code does; commit messages
+  conventional (`feat:`/`fix:`), subject ≤ 50 chars, body explains why.
+- **Do NOT**: add frameworks or deps without strong reason; touch
+  `~/professional-site` except to read; commit `dist/` or `node_modules`;
+  break mobile (no pointer lock there — feature-gate with `isMobile()`);
+  push to GitHub unless the user asks.
+
+---
+
+## Phase 1 — quick wins (Sonnet-friendly, one session each)
+
+### 1.1 Beat-synced dancer moves  — model: Sonnet
+The scene already computes bass transients (`punch` in main.js). Make dancers
+switch animations ON the beat instead of on a setTimeout.
+- In `playDancerNextAnimation`, remove the setTimeout chain. Instead track
+  `clipElapsed` per dancer; in `animate()`, when a dancer's current clip has
+  played ≥ 70% of its duration AND `punch > 0.25` (a kick), advance to its
+  next animation. Fallback: force-advance at 130% duration so silence never
+  freezes a dancer mid-loop.
+- Crossfade stays 0.5s (`fadeOut`/`fadeIn` already in place).
+- Acceptance: with music playing, dancers visibly change moves on kicks;
+  with music paused they still cycle (fallback path); no console warnings.
+
+### 1.2 Fireworks on double-click  — model: Sonnet
+Joy feature. Double-click anywhere (not in flight mode): firework launches
+from the horizon toward the sky, explodes into ~300 points.
+- New `src/components/fireworks.js`: one THREE.Points pool (~1500 verts,
+  single BufferGeometry, additive blending, vertexColors). CPU-side particle
+  sim in `update(dt)` — position += velocity, velocity.y -= gravity, life
+  fades alpha via a `aLife` attribute consumed in a small ShaderMaterial.
+  Rocket phase = 1 particle streaking up; explosion = spawn ring of particles
+  at apex with random spherical velocities, color = random HSL hue.
+- Optional: tiny synthesized "thump" via WebAudio oscillator + noise burst
+  (no audio file). Skip if fiddly.
+- Wire: `dblclick` listener (guard `flight.enabled` and `e.target` being the
+  canvas), launch at a point 400–800 units away in the click direction.
+- Acceptance: double-click spawns firework, 60fps holds with 3 simultaneous,
+  particles fade fully (no immortal points), works with clouds on.
+
+### 1.3 Seagulls (boids)  — model: Sonnet
+Makes the world feel alive. ~24 birds circling the text monument.
+- New `src/components/birds.js`. Each bird = 2 triangles (flapping wings via
+  vertex shader `sin(uTime * flapSpeed + phase)` on wing verts) in ONE
+  InstancedMesh; per-instance offset/heading updated CPU-side with classic
+  boids (separation/alignment/cohesion) constrained to a torus around origin
+  (radius 150–400, altitude 40–120).
+- Boids at 24 agents = trivial CPU. Store per-instance matrices via
+  `setMatrixAt` + `instanceMatrix.needsUpdate`.
+- Silhouette color near-black, slight fog-fade with distance. No textures.
+- Acceptance: birds flock plausibly (no clumping into one point, no fleeing
+  to infinity — clamp speeds), visible from spawn viewpoint, +1 draw call.
+
+### 1.4 Photo mode  — model: Sonnet
+- Key P (and GUI button "Photo") hides all HUD (`.lil-gui`, info/tips
+  containers, music button, stats) via a `photo-mode` body class + CSS,
+  waits one frame, then `renderer.domElement.toBlob` → download
+  `funky-<timestamp>.png`. IMPORTANT: WebGLRenderer needs
+  `preserveDrawingBuffer: true` OR (better) render once synchronously right
+  before toBlob — do the latter, don't change renderer flags.
+- Acceptance: P downloads a clean PNG with no UI; UI returns after.
+
+## Phase 2 — atmosphere (Sonnet for 2.1/2.2, Opus for 2.3)
+
+### 2.1 Lens flare per HDRI  — model: Sonnet
+- three addon `Lensflare` + `LensflareElement`, textures generated on canvas
+  (radial gradients — same trick as clouds.js `makePuffTexture`).
+- Add `sun: [x, y, z] | null` to each `CLOUD_PRESETS` entry (estimate sun
+  direction per sky by eye; ask the human to fine-tune numbers live via a
+  temporary GUI vec3). Attach flare to a light/object positioned far along
+  that direction; presets without sun (storm, overcast, moon, memorial) = null.
+- Acceptance: Day/Dusk/Pink Sunset show a flare that occludes behind the
+  text mesh; no flare on sunless presets; HDRI switch swaps flare correctly.
+
+### 2.2 Rain + lightning for Stormy  — model: Sonnet (rain) / Opus if shader trouble
+- Rain: one THREE.Points field (~2000 streaks, cylinder around camera,
+  y wraps mod height; vertex shader stretches points into streaks via
+  gl_PointSize + a smear in the fragment). Follows camera like clouds tile.
+- Lightning: every 6–14s (random), 2-frame white flash — bump
+  `dirLight.intensity` ×8 and background exposure briefly, then thunder:
+  filtered noise burst via WebAudio (no file) delayed 0.5–2s.
+- Auto-activates only for preset '003' (Stormy), via the existing
+  `applyPreset` pathway (add an `fx: 'rain'` field). GUI toggle to override.
+- Acceptance: switching to Stormy starts rain within a second; leaving stops
+  it; flash never strobes more than 2 frames; fps holds.
+
+### 2.3 HDRI crossfade  — model: Opus
+Currently sky switches are a hard pop. Blend old → new over ~1.5s.
+- Cannot lerp `scene.background` directly. Approach: custom fullscreen
+  background via a large inverted sphere (or THREE.Scene.backgroundBlurriness
+  tricks won't help): shader samples BOTH equirect textures, mixes by uniform
+  `uBlend`; while blending, `scene.background = null` and the sphere renders
+  first (depthWrite off, renderOrder -1). After blend completes, set
+  `scene.background = newTexture`, remove sphere, dispose old.
+- `scene.environment` can just hard-swap at blend midpoint (reflection pop is
+  barely noticeable; don't over-engineer).
+- Tricky details: sphere must follow camera; tone mapping chunks in the
+  shader (`#include <tonemapping_fragment>`, `<colorspace_fragment>`);
+  equirect sampling function (three has `equirectUv` in shader chunks).
+  This is the fiddliest shader task in the plan — hence Opus.
+- Acceptance: HDRI dropdown changes melt smoothly; cloud tint still applies;
+  no double-dispose crash when spamming the dropdown (guard concurrent blends).
+
+## Phase 3 — the big one (Opus, possibly 2 sessions)
+
+### 3.1 Portfolio islands — give flight a destination
+Right now flying is aimless. Scatter 4–6 floating "project islands" in the
+sky (600–1500 units out, altitude 200–500): each a small rock/platform with
+a floating 3D title, holding a project card.
+- Content source: hardcode a `PROJECTS` array in a new
+  `src/components/islands.js` (title, blurb, url, accent color). Ask the
+  human which projects; `~/professional-site/views/content/projects/*.md`
+  has the list (read-only!).
+- Island geometry: low-poly icosahedron rock (flat-shaded, vertex-displaced
+  by hash noise) + TextGeometry title (font already loaded via AssetLoader)
+  + a slowly rotating ring. Bob gently (sin). One draw call per island is fine.
+- Interaction: raycast on click (both orbit + flight modes); within 250
+  units, clicking opens the project URL in a new tab (`window.open`);
+  farther away, clicking smoothly flies the camera toward it (lerp camera
+  position over ~2s, disable controls during, hand back after). In flight
+  mode show island name in the HUD hint when crosshair hovers it.
+- A "compass" hint: small floating arrows or a GUI list "Projects" with
+  fly-to buttons, so orbit-mode users discover them too.
+- Acceptance: islands visible from spawn as distant silhouettes; fly-to
+  works from both control modes; links open; nothing z-fights the clouds;
+  mobile (orbit-only) can still tap islands listed in GUI.
+
+## Phase 4 — polish / defense (Sonnet)
+
+### 4.1 Adaptive quality
+- Rolling 3s FPS average (reuse the throttle block). If < 40: drop
+  pixelRatio one notch (min 1), halve cloud density, disable rain; if > 55
+  for 10s, restore one notch. Log decisions once each (no spam). GUI
+  "Quality: auto/high/low" dropdown to pin it.
+- Acceptance: forcing chrome's software GL (or 6× CPU throttle) triggers a
+  visible quality drop instead of a slideshow; recovery works.
+
+### 4.2 Progress-real loading screen
+- AssetLoader already owns a THREE.LoadingManager — wire
+  `manager.onProgress` to the existing `#loadingBar` width so the bar
+  reflects reality instead of instantly vanishing. Add the same funky yellow
+  accent as the rest of the HUD. Show the first frame ASAP: HDRI + audio are
+  already lazy; the bar mostly tracks font + waternormals (fast) — keep it
+  honest but snappy.
+
+### 4.3 Playlist (only if the human supplies more tracks)
+- `src/public/audio/` with 2–3 mp3s + a `TRACKS` array (title, file).
+  Crossfade via TWO THREE.Audio instances alternating (volume stepped in the
+  render loop — see the d7cb8db bug note; no AudioParam ramps). Track-name
+  toast reusing the music pill. Analyser must follow the active track —
+  simplest: one analyser per Audio, swap `analyser` reference at crossfade
+  midpoint. Skip this task if no tracks are provided.
+
+---
+
+## Execution advice (for the human)
+
+- **Sonnet 5**: fine for every task marked Sonnet — specs above are tight.
+  If a task touches shaders and the first attempt renders black, escalate
+  that one task to Opus rather than iterating blind.
+- **Opus**: 2.3 and 3.1 (multi-file, judgment calls, shader integration).
+- One task per session. After each: `npm run build`, clean stale bundles,
+  browser-check (console clean, fps fine, mobile sanity), commit, stop.
+- Session opener that works: "Read ROADMAP.md. Do task N.N only. Follow the
+  architecture notes and Do-NOT list."
