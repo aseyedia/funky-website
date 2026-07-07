@@ -198,6 +198,86 @@ a floating 3D title, holding a project card.
   simplest: one analyser per Audio, swap `analyser` reference at crossfade
   midpoint. Skip this task if no tracks are provided.
 
+### 1.5 Flight: reset to start  — model: Sonnet (tiny)
+- Key **H** (home) and GUI button "Return home": smoothly lerp camera back to
+  spawn (`0, 30, 100`) over ~1.5s, easing out; works in both flight and orbit
+  modes. In flight mode stay in flight (just move); in orbit mode also reset
+  `controls.target` to origin. Guard: ignore H while already homing.
+- Also add to the flight HUD hint: `h home`.
+- Acceptance: get lost 2000 units out, press H, land at spawn facing the text.
+
+## Phase 5 — dancer personality (the zany arc)
+
+Staged asset: `src/public/models/anims/talking.glb` — 3.8s talking-gesture
+clip, same Ch32 skeleton as the dancers, verified binding (52/52 targets).
+Load it like any dance clip.
+
+### 5.1 Canned affirmations  — model: Sonnet
+- Click a dancer (raycast; they're SkinnedMesh under clones — raycast
+  against `dancer.model` subtree, `recursive: true`): dancer plays
+  `talking.glb` (loop ×2, then back to dancing) while a speech bubble shows a
+  random line from a hardcoded `AFFIRMATIONS` array (~30 lines, funky tone:
+  "you're doing amazing, kid", "hydrate!", "your git history is beautiful").
+- Bubble = HTML div positioned via `Vector3.project()` each frame above the
+  dancer's head bone (`mixamorig8:Head` — `getObjectByName` on the clone),
+  styled like the existing black/yellow pills. Hide after ~4s.
+- Acceptance: click dancer → talk gesture + bubble; other two keep dancing;
+  clicks while talking are ignored; mobile tap works.
+
+### 5.2 AI chat with the dancers  — model: Opus (has a server component)
+Talk to a dancer; it answers in character via OpenRouter on a dirt-cheap model.
+- **Key never ships to the browser.** Add ONE route to
+  `~/professional-site/app.js` (this is the sanctioned exception to the
+  don't-touch rule; keep the diff minimal): `POST /funky/api/chat`
+  { message, history } → OpenRouter chat completion → { reply }.
+  Key from `~/media-center/.env` (`OPENROUTER_*`) loaded server-side.
+  Executor picks the cheapest sane model on OpenRouter at build time
+  (small Llama/Gemma class); `max_tokens: 120`, temperature high.
+- Guardrails, non-negotiable: rate limit (e.g. 10 req/min/IP + 300/day
+  global), 500-char input cap, no user data in the system prompt, **no
+  Obsidian/vault/CRM context — the persona is fully synthetic**, and a
+  monthly spend limit set on the OpenRouter dashboard by the human.
+- System prompt: breakdancer persona, upbeat, 2 sentences max, never claims
+  to be Arta or know him personally, refuses personal questions gracefully
+  ("I just dance here, man").
+- Frontend: chat opens when clicking an already-talking dancer (or a GUI
+  button). Input pill bottom-center; replies appear in the 5.1 speech bubble;
+  `talking.glb` loops while "speaking". Fallback to canned affirmations if
+  the endpoint errors — feature degrades, never breaks.
+- Acceptance: chat round-trip < 3s, rate limit returns a funny in-character
+  refusal, killing the endpoint leaves 5.1 fully working.
+
+## Phase 6 — idea backlog (unspec'd; promote to tasks when wanted)
+
+Website-side zany:
+- **Konami code** → disco: all dancers + strobing cube + tempo-doubled
+  animation timeScale for 20s.
+- **Typing echo**: keystrokes (outside flight/GUI) spawn floating 3D letters
+  that drift off like balloons. Cheap TextGeometry pool.
+- **Time-of-day auto-sky**: pick HDRI preset from visitor's local clock
+  (day/dusk/night), still overridable in GUI.
+- **Visitor trails**: anonymized recent-visitor count as extra seagulls
+  (needs a tiny counter endpoint — same guardrail rules as 5.2).
+- **Cube physics**: throwable cube — verlet + water bounce + splash.
+
+IoT / media-center crossovers (server already runs ntfy, Homebridge,
+Reolink cams, HL-2140 printer — all on Tailscale):
+- **ntfy → fireworks**: server publishes to a public topic on real events
+  (deploy finished, backup OK); website subscribes over ntfy's WebSocket/SSE
+  and fires a firework per event. Read-only, no auth risk, very funky.
+- **Server-heartbeat island**: floating monument showing live CPU/RAM/uptime
+  from a tiny public JSON endpoint (whitelist those three numbers, nothing
+  else — no hostnames, no versions).
+- **Doorbell wave**: Reolink motion event (via ntfy) → dancers face camera
+  and wave (talking.glb works as the gesture). Purely cosmetic on the
+  public site; the trigger carries zero payload.
+- **Guestbook printer**: visitors leave a 1-line note → prints on the
+  HL-2140. High spam/abuse risk: needs hard rate limit (1/visitor/day,
+  20/day global), profanity filter, and a kill switch. Fun, but implement
+  LAST and disable by default.
+- Anything IoT-inbound (website → server actions beyond printing): don't.
+  Outbound telemetry only; admin stays Tailscale-side.
+
 ---
 
 ## Execution advice (for the human)
