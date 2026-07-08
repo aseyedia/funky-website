@@ -14,6 +14,7 @@ import { SkyCrossfade } from './components/skyCrossfade.js';
 import { FlightControls } from './components/flight.js';
 import { FireworkSystem } from './components/fireworks.js';
 import { BirdFlock } from './components/birds.js';
+import { PlaneBanner } from './components/planeBanner.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import dancerLinesRaw from './data/dancer-lines.txt?raw';
 
@@ -46,6 +47,7 @@ let flight = null;
 let fireworks = null;
 let birds = null;
 let rain = null;
+let planeBanner = null;
 let sunFlare = null;
 let sunFlareAnchor = null;
 const SUN_DISTANCE = 5000;
@@ -139,6 +141,37 @@ const CHAT_FETCH_TIMEOUT_MS = 12000; // free-text turn: OpenRouter + TTS
 const CHAT_MESSAGE_MAX_LENGTH = 300;
 const CONVERSATION_HISTORY_MAX_ENTRIES = 8; // user+assistant entries kept per dancer, oldest dropped first
 
+const VISITOR_ID_KEY = 'funky_visitor_id';
+const PLANE_AUTO_FLY_DELAY_MS = 2000; // gives the visit fetch time to resolve before the banner needs real numbers
+
+function getOrCreateVisitorId() {
+    try {
+        let id = localStorage.getItem(VISITOR_ID_KEY);
+        if (!id) {
+            id = crypto.randomUUID();
+            localStorage.setItem(VISITOR_ID_KEY, id);
+        }
+        return id;
+    } catch {
+        return crypto.randomUUID(); // storage unavailable — won't dedupe across reloads, acceptable
+    }
+}
+
+function fetchVisitStats() {
+    fetch(`${import.meta.env.BASE_URL}api/visit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId: getOrCreateVisitorId() }),
+        signal: AbortSignal.timeout(6000),
+    })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
+        .then((stats) => {
+            planeBanner.setStats(stats);
+            setTimeout(() => planeBanner.fly(), PLANE_AUTO_FLY_DELAY_MS);
+        })
+        .catch((err) => console.warn('visit tracking failed, plane banner skipped for this load:', err.message));
+}
+
 init();
 animate();
 
@@ -211,6 +244,10 @@ function init() {
     scene.add(rain.points);
     applyWeatherForPreset('001'); // matches the default Day HDRI
 
+    planeBanner = new PlaneBanner();
+    scene.add(planeBanner.group);
+    fetchVisitStats();
+
     setupSunFlare();
     applySunForPreset('001');
 
@@ -260,6 +297,8 @@ function init() {
     renderer.domElement.addEventListener('click', onDancerClick);
     renderer.domElement.addEventListener('dblclick', onFireworkDoubleClick);
     renderer.domElement.addEventListener('mousemove', onDancerHover);
+
+    document.getElementById('summon-plane').addEventListener('click', () => planeBanner.fly());
 }
 
 function onFireworkDoubleClick(e) {
@@ -981,13 +1020,31 @@ function raycastDancer(clientX, clientY) {
     }) || null;
 }
 
+function raycastPlane(clientX, clientY) {
+    if (!planeBanner.flying) return false;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1
+    );
+    dancerRaycaster.setFromCamera(ndc, camera);
+    return dancerRaycaster.intersectObject(planeBanner.hitZone, true).length > 0;
+}
+
 function onDancerClick(e) {
-    if (flight.enabled || dancers.length === 0 || cameraFocus || homing) return;
+    if (flight.enabled || cameraFocus || homing) return;
+    // plane check first — it should be clickable even with zero dancers enabled
+    if (raycastPlane(e.clientX, e.clientY)) {
+        planeBanner.cycleStat();
+        return;
+    }
+    if (dancers.length === 0) return;
     const dancer = raycastDancer(e.clientX, e.clientY);
     if (dancer) startDialogue(dancer);
 }
 
 let hoveredDancer = null;
+let planeHovered = false;
 
 function setDancerHighlight(dancer, on) {
     if (dancer.mesh) {
@@ -1003,20 +1060,33 @@ function onDancerHover(e) {
     // suppressed for the whole dolly (in/holding/out), not just while flying —
     // otherwise a different idle dancer can light up mid-focus, promising a
     // click that onDancerClick's cameraFocus guard will silently ignore
-    if (flight.enabled || dancers.length === 0 || cameraFocus) {
+    if (flight.enabled || cameraFocus) {
         if (hoveredDancer) {
             setDancerHighlight(hoveredDancer, false);
             hoveredDancer = null;
-            renderer.domElement.style.cursor = 'auto';
         }
+        if (planeHovered) {
+            planeBanner.setHighlight(false);
+            planeHovered = false;
+        }
+        renderer.domElement.style.cursor = 'auto';
         return;
     }
-    const hit = raycastDancer(e.clientX, e.clientY);
-    if (hit === hoveredDancer) return;
-    if (hoveredDancer) setDancerHighlight(hoveredDancer, false);
-    hoveredDancer = hit;
-    if (hoveredDancer) setDancerHighlight(hoveredDancer, true);
-    renderer.domElement.style.cursor = hoveredDancer ? 'pointer' : 'auto';
+
+    const overPlane = raycastPlane(e.clientX, e.clientY);
+    if (overPlane !== planeHovered) {
+        planeBanner.setHighlight(overPlane);
+        planeHovered = overPlane;
+    }
+
+    const hit = dancers.length > 0 ? raycastDancer(e.clientX, e.clientY) : null;
+    if (hit !== hoveredDancer) {
+        if (hoveredDancer) setDancerHighlight(hoveredDancer, false);
+        hoveredDancer = hit;
+        if (hoveredDancer) setDancerHighlight(hoveredDancer, true);
+    }
+
+    renderer.domElement.style.cursor = (hoveredDancer || planeHovered) ? 'pointer' : 'auto';
 }
 
 function createText(message, callback) {
@@ -1239,6 +1309,7 @@ function animate(currentTime) {
         fireworks.update(dt);
         birds.update(dt, currentTime / 1000);
         rain.update(currentTime / 1000, camera);
+        planeBanner.update(dt);
         skyCrossfade.update(dt, camera);
         weatherParams.rain = rain.enabled;
 
