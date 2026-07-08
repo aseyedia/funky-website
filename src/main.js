@@ -19,6 +19,7 @@ const frameDuration = 1000 / desiredFPS;
 const stats = new URLSearchParams(location.search).has('stats') ? new Stats() : null;
 if (stats) {
     stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    stats.dom.id = 'stats-panel';
     document.body.appendChild(stats.dom);
 }
 
@@ -185,6 +186,11 @@ function init() {
         if (e.target.tagName === 'INPUT') return; // lil-gui fields
         startHoming();
     }, false);
+    window.addEventListener('keydown', e => {
+        if (e.code !== 'KeyP' || e.repeat) return;
+        if (e.target.tagName === 'INPUT') return; // lil-gui fields
+        takePhoto();
+    }, false);
 }
 
 function startHoming() {
@@ -192,6 +198,24 @@ function startHoming() {
     homing = true;
     homeElapsed = 0;
     homeFrom.copy(camera.position);
+}
+
+function takePhoto() {
+    document.body.classList.add('photo-mode');
+    requestAnimationFrame(() => {
+        // buffer isn't preserved between frames — render fresh, synchronously,
+        // right before toBlob reads it, or the capture can come back blank.
+        renderer.render(scene, camera);
+        renderer.domElement.toBlob(blob => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `funky-${Date.now()}.png`;
+            a.click();
+            URL.revokeObjectURL(url);
+            document.body.classList.remove('photo-mode');
+        }, 'image/png');
+    });
 }
 
 function isMobile() {
@@ -611,6 +635,7 @@ function removeSettings(cubeFolder) {
 function initGUI() {
     const gui = new GUI();
     gui.add({ home: () => startHoming() }, 'home').name('Return home (H)');
+    gui.add({ photo: () => takePhoto() }, 'photo').name('Photo (P)');
 
     const hdrFolder = gui.addFolder('HDRI');
     const hdrOptions = {

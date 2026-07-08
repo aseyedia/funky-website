@@ -98,7 +98,7 @@ Makes the world feel alive. ~24 birds circling the text monument.
 - Acceptance: birds flock plausibly (no clumping into one point, no fleeing
   to infinity — clamp speeds), visible from spawn viewpoint, +1 draw call.
 
-### 1.4 Photo mode  — model: Sonnet
+### 1.4 Photo mode  — model: Sonnet — DONE
 - Key P (and GUI button "Photo") hides all HUD (`.lil-gui`, info/tips
   containers, music button, stats) via a `photo-mode` body class + CSS,
   waits one frame, then `renderer.domElement.toBlob` → download
@@ -198,7 +198,7 @@ a floating 3D title, holding a project card.
   simplest: one analyser per Audio, swap `analyser` reference at crossfade
   midpoint. Skip this task if no tracks are provided.
 
-### 1.5 Flight: reset to start  — model: Sonnet (tiny)
+### 1.5 Flight: reset to start  — model: Sonnet (tiny) — DONE (commit cfce95c)
 - Key **H** (home) and GUI button "Return home": smoothly lerp camera back to
   spawn (`0, 30, 100`) over ~1.5s, easing out; works in both flight and orbit
   modes. In flight mode stay in flight (just move); in orbit mode also reset
