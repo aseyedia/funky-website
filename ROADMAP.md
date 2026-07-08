@@ -69,7 +69,7 @@ switch animations ON the beat instead of on a setTimeout.
 - Acceptance: with music playing, dancers visibly change moves on kicks;
   with music paused they still cycle (fallback path); no console warnings.
 
-### 1.2 Fireworks on double-click  — model: Sonnet — DONE (needs live visual check — see note)
+### 1.2 Fireworks on double-click  — model: Sonnet — DONE (confirmed live: works, subtle in daylight HDRI, good enough)
 Joy feature. Double-click anywhere (not in flight mode): firework launches
 from the horizon toward the sky, explodes into ~300 points.
 - New `src/components/fireworks.js`: one THREE.Points pool (~1500 verts,
