@@ -277,6 +277,7 @@ function init() {
     }, false);
     renderer.domElement.addEventListener('click', onDancerClick);
     renderer.domElement.addEventListener('dblclick', onFireworkDoubleClick);
+    renderer.domElement.addEventListener('mousemove', onDancerHover);
 }
 
 function onFireworkDoubleClick(e) {
@@ -596,11 +597,18 @@ function enableDancer() {
             remaining--;
             if (fbx) {
                 fbx.position.set(pos.x, pos.y, pos.z);
+                let dancerMesh = null;
+                fbx.traverse((child) => {
+                    if (child.isMesh) {
+                        child.material = child.material.clone();
+                        dancerMesh = child;
+                    }
+                });
                 scene.add(fbx);
                 const dancerMixer = new THREE.AnimationMixer(fbx);
                 const animOffset = Math.floor(i * danceAnimations.length / DANCER_POSITIONS.length);
                 const dancer = {
-                    model: fbx, mixer: dancerMixer, animIndex: animOffset, currentAction: null,
+                    model: fbx, mesh: dancerMesh, mixer: dancerMixer, animIndex: animOffset, currentAction: null,
                     loading: false, clipElapsed: 0, clipDuration: Infinity,
                     // GLTFLoader strips ':' from node names, so the source rig's
                     // "mixamorig8:Head" comes through as "mixamorig8Head".
@@ -689,26 +697,55 @@ function showAffirmationBubble(dancer) {
     dancer.bubbleUntil = performance.now() + 4000;
 }
 
-function onDancerClick(e) {
-    if (flight.enabled || dancers.length === 0) return;
+function raycastDancer(clientX, clientY) {
     const rect = renderer.domElement.getBoundingClientRect();
     const ndc = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1
+        ((clientX - rect.left) / rect.width) * 2 - 1,
+        -((clientY - rect.top) / rect.height) * 2 + 1
     );
     dancerRaycaster.setFromCamera(ndc, camera);
     const hits = dancerRaycaster.intersectObjects(dancers.map(d => d.model), true);
-    if (hits.length === 0) return;
+    if (hits.length === 0) return null;
     const hitObj = hits[0].object;
-    const dancer = dancers.find(d => {
+    return dancers.find(d => {
         let o = hitObj;
         while (o) {
             if (o === d.model) return true;
             o = o.parent;
         }
         return false;
-    });
+    }) || null;
+}
+
+function onDancerClick(e) {
+    if (flight.enabled || dancers.length === 0) return;
+    const dancer = raycastDancer(e.clientX, e.clientY);
     if (dancer) triggerAffirmation(dancer);
+}
+
+let hoveredDancer = null;
+
+function setDancerHighlight(dancer, on) {
+    if (!dancer.mesh) return;
+    dancer.mesh.material.emissive.setHex(on ? 0xffdd55 : 0x000000);
+    dancer.mesh.material.emissiveIntensity = on ? 0.6 : 0;
+}
+
+function onDancerHover(e) {
+    if (flight.enabled || dancers.length === 0) {
+        if (hoveredDancer) {
+            setDancerHighlight(hoveredDancer, false);
+            hoveredDancer = null;
+            renderer.domElement.style.cursor = 'auto';
+        }
+        return;
+    }
+    const hit = raycastDancer(e.clientX, e.clientY);
+    if (hit === hoveredDancer) return;
+    if (hoveredDancer) setDancerHighlight(hoveredDancer, false);
+    hoveredDancer = hit;
+    if (hoveredDancer) setDancerHighlight(hoveredDancer, true);
+    renderer.domElement.style.cursor = hoveredDancer ? 'pointer' : 'auto';
 }
 
 function createText(message, callback) {
