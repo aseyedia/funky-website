@@ -1064,6 +1064,59 @@ function createText(message, callback) {
     attemptCreateText();
 }
 
+// The English name is an extruded TextGeometry, but that font format (and
+// three.js's TextGeometry itself) only lays out glyphs left-to-right with
+// no Arabic-script shaping — Persian text needs both RTL reordering and
+// per-letter contextual forms, which the browser's own text engine already
+// does correctly. So the Persian variant is a canvas-rendered texture on a
+// plane instead of a second extruded font.
+let persianNameMesh = null;
+let persianNameEnabled = false;
+
+async function createPersianNameMesh() {
+    await document.fonts.load('160px Lalezar');
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    ctx.direction = 'rtl';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.font = '160px Lalezar';
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText('آرتا سیدیان', canvas.width / 2, canvas.height / 2 + 20);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    const geometry = new THREE.PlaneGeometry(80, 80 * (canvas.height / canvas.width));
+    const material = new THREE.MeshPhysicalMaterial({
+        map: texture,
+        transparent: true,
+        metalness: params.metalness,
+        roughness: params.roughness,
+        envMapIntensity: 1.0,
+        clearcoat: 1.0,
+        clearcoatRoughness: 0,
+    });
+    persianNameMesh = new THREE.Mesh(geometry, material);
+    persianNameMesh.position.set(0, 10, 0);
+    persianNameMesh.visible = persianNameEnabled;
+    scene.add(persianNameMesh);
+    textMeshes.push(persianNameMesh);
+}
+
+function togglePersianName(enabled) {
+    persianNameEnabled = enabled;
+    if (textMeshes[0]) textMeshes[0].visible = !enabled; // the English mesh is always textMeshes[0]
+    if (enabled && !persianNameMesh) {
+        createPersianNameMesh();
+    } else if (persianNameMesh) {
+        persianNameMesh.visible = enabled;
+    }
+}
+
 function createOcean() {
     const waterGeometry = new THREE.PlaneGeometry(10000, 10000);
     const waterNormals = AssetLoader.getAsset('textures', 'waterNormals');
@@ -1395,6 +1448,9 @@ function initGUI() {
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
+
+    const nameFolder = gui.addFolder('Name');
+    nameFolder.add({ persian: false }, 'persian').name('Persian (Farsi)').onChange(togglePersianName);
 
     const dancerFolder = gui.addFolder('Dancer');
     dancerFolder.add({ enabled: false }, 'enabled').name('Enable').onChange(value => {
