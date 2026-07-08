@@ -665,7 +665,7 @@ function enableDancer() {
                     // GLTFLoader strips ':' from node names, so the source rig's
                     // "mixamorig8:Head" comes through as "mixamorig8Head".
                     headBone: fbx.getObjectByName('mixamorig8Head'), talking: false,
-                    bubbleEl: null, bubbleUntil: 0,
+                    bubbleEl: null,
                 };
                 dancers.push(dancer);
                 playDancerNextAnimation(dancer);
@@ -713,6 +713,10 @@ function triggerAffirmation(dancer) {
     if (dancer.talking || cameraFocus || homing) return;
     dancer.talking = true;
     startCameraFocus(dancer);
+    playCannedAffirmation(dancer);
+}
+
+function playCannedAffirmation(dancer) {
     AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
         if (!clip) {
             dancer.talking = false;
@@ -726,28 +730,33 @@ function triggerAffirmation(dancer) {
         action.fadeIn(0.3);
         action.play();
         dancer.currentAction = action;
-        showAffirmationBubble(dancer);
+        showAffirmationBubble(dancer, AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)]);
 
         const onFinished = (e) => {
             if (e.action !== action) return;
             dancer.mixer.removeEventListener('finished', onFinished);
-            dancer.talking = false;
-            playDancerNextAnimation(dancer);
+            finishTalking(dancer, action);
         };
         dancer.mixer.addEventListener('finished', onFinished);
     });
 }
 
-function showAffirmationBubble(dancer) {
+function finishTalking(dancer, action) {
+    if (dancer.currentAction !== action) return; // superseded by a newer trigger already
+    dancer.talking = false;
+    if (dancer.bubbleEl) dancer.bubbleEl.style.display = 'none';
+    playDancerNextAnimation(dancer);
+}
+
+function showAffirmationBubble(dancer, text) {
     if (!dancer.bubbleEl) {
         const el = document.createElement('div');
         el.className = 'dancer-bubble';
         document.body.appendChild(el);
         dancer.bubbleEl = el;
     }
-    dancer.bubbleEl.textContent = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
+    dancer.bubbleEl.textContent = text;
     dancer.bubbleEl.style.display = 'block';
-    dancer.bubbleUntil = performance.now() + 4000;
 }
 
 function raycastDancer(clientX, clientY) {
@@ -998,16 +1007,12 @@ function animate(currentTime) {
         dancers.forEach(d => {
             d.mixer.update(dt);
 
-            if (d.bubbleEl && d.bubbleEl.style.display !== 'none') {
-                if (performance.now() > d.bubbleUntil) {
-                    d.bubbleEl.style.display = 'none';
-                } else if (d.headBone) {
-                    const headPos = d.headBone.getWorldPosition(new THREE.Vector3());
-                    headPos.y += 3; // clear the top of the head
-                    headPos.project(camera);
-                    d.bubbleEl.style.left = `${(headPos.x * 0.5 + 0.5) * window.innerWidth}px`;
-                    d.bubbleEl.style.top = `${(-headPos.y * 0.5 + 0.5) * window.innerHeight}px`;
-                }
+            if (d.bubbleEl && d.bubbleEl.style.display !== 'none' && d.headBone) {
+                const headPos = d.headBone.getWorldPosition(new THREE.Vector3());
+                headPos.y += 3; // clear the top of the head
+                headPos.project(camera);
+                d.bubbleEl.style.left = `${(headPos.x * 0.5 + 0.5) * window.innerWidth}px`;
+                d.bubbleEl.style.top = `${(-headPos.y * 0.5 + 0.5) * window.innerHeight}px`;
             }
 
             if (d.loading || d.talking || !d.currentAction) return;
