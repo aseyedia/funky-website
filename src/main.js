@@ -685,6 +685,9 @@ function disableDancer() {
     dancers.forEach(d => {
         d.mixer.stopAllAction();
         d.currentAction = null;
+        // otherwise a dancer disabled mid-talk (mid-fetch/mid-audio) stays
+        // permanently unclickable after re-enabling — nothing else clears it.
+        d.talking = false;
         d.model.visible = false;
     });
 }
