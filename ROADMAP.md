@@ -182,7 +182,7 @@ a floating 3D title, holding a project card.
 - Acceptance: forcing chrome's software GL (or 6× CPU throttle) triggers a
   visible quality drop instead of a slideshow; recovery works.
 
-### 4.2 Progress-real loading screen
+### 4.2 Progress-real loading screen — DONE
 - AssetLoader already owns a THREE.LoadingManager — wire
   `manager.onProgress` to the existing `#loadingBar` width so the bar
   reflects reality instead of instantly vanishing. Add the same funky yellow

@@ -116,6 +116,11 @@ function hideLazyStatus(id) {
 }
 
 function init() {
+    AssetLoader.loadingManager.onProgress = (url, itemsLoaded, itemsTotal) => {
+        const bar = document.getElementById('loadingBar');
+        if (bar) bar.style.width = `${Math.min(100, (itemsLoaded / itemsTotal) * 100)}%`;
+    };
+
     setupCamera();
     setupScene();
     setupRenderer();
