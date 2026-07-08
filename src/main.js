@@ -64,6 +64,12 @@ let homing = false;
 let homeElapsed = 0;
 const HOME_SECONDS = 1.5;
 const homeFrom = new THREE.Vector3();
+let cameraFocus = null; // { dancer, savedPos, savedTarget, phase: 'in'|'holding'|'out', elapsed }
+const CAMERA_FOCUS_SECONDS = 1.2;
+const CAMERA_FOCUS_MAX_HOLD_MS = 8000;
+const CAMERA_FOCUS_DISTANCE = 18;
+const cameraFocusFrom = new THREE.Vector3();
+const cameraFocusTo = new THREE.Vector3();
 
 // Adaptive quality: one-step pixelRatio + cloud-density drop under load.
 let basePixelRatio = 1;
@@ -416,10 +422,66 @@ function playThunder() {
 }
 
 function startHoming() {
-    if (homing) return;
+    if (homing || cameraFocus) return;
     homing = true;
     homeElapsed = 0;
     homeFrom.copy(camera.position);
+}
+
+function startCameraFocus(dancer) {
+    if (cameraFocus || !dancer.headBone) return;
+    const headPos = dancer.headBone.getWorldPosition(new THREE.Vector3());
+    const awayFromHead = new THREE.Vector3().subVectors(camera.position, headPos);
+    if (awayFromHead.lengthSq() < 1e-6) awayFromHead.set(0, 0, 1);
+    awayFromHead.normalize();
+
+    cameraFocusFrom.copy(camera.position);
+    cameraFocusTo.copy(headPos).addScaledVector(awayFromHead, CAMERA_FOCUS_DISTANCE);
+
+    controls.enabled = false;
+    cameraFocus = {
+        dancer,
+        savedPos: camera.position.clone(),
+        savedTarget: controls.target.clone(),
+        phase: 'in',
+        elapsed: 0,
+    };
+}
+
+function updateCameraFocus(dt) {
+    if (!cameraFocus) return;
+    const headPos = cameraFocus.dancer.headBone.getWorldPosition(new THREE.Vector3());
+
+    if (cameraFocus.phase === 'in') {
+        cameraFocus.elapsed += dt;
+        const t = Math.min(1, cameraFocus.elapsed / CAMERA_FOCUS_SECONDS);
+        const eased = 1 - Math.pow(1 - t, 3);
+        camera.position.lerpVectors(cameraFocusFrom, cameraFocusTo, eased);
+        camera.lookAt(headPos);
+        if (t >= 1) {
+            cameraFocus.phase = 'holding';
+            cameraFocus.elapsed = 0;
+        }
+    } else if (cameraFocus.phase === 'holding') {
+        camera.lookAt(headPos);
+        cameraFocus.elapsed += dt * 1000;
+        if (!cameraFocus.dancer.talking || cameraFocus.elapsed >= CAMERA_FOCUS_MAX_HOLD_MS) {
+            cameraFocusFrom.copy(camera.position);
+            cameraFocus.phase = 'out';
+            cameraFocus.elapsed = 0;
+        }
+    } else if (cameraFocus.phase === 'out') {
+        cameraFocus.elapsed += dt;
+        const t = Math.min(1, cameraFocus.elapsed / CAMERA_FOCUS_SECONDS);
+        const eased = 1 - Math.pow(1 - t, 3);
+        camera.position.lerpVectors(cameraFocusFrom, cameraFocus.savedPos, eased);
+        camera.lookAt(cameraFocus.savedTarget);
+        if (t >= 1) {
+            controls.target.copy(cameraFocus.savedTarget);
+            controls.enabled = true;
+            cameraFocus = null;
+        }
+    }
 }
 
 function takePhoto() {
@@ -648,8 +710,9 @@ function playDancerNextAnimation(dancer) {
 }
 
 function triggerAffirmation(dancer) {
-    if (dancer.talking) return;
+    if (dancer.talking || cameraFocus) return;
     dancer.talking = true;
+    startCameraFocus(dancer);
     AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
         if (!clip) {
             dancer.talking = false;
@@ -708,7 +771,7 @@ function raycastDancer(clientX, clientY) {
 }
 
 function onDancerClick(e) {
-    if (flight.enabled || dancers.length === 0) return;
+    if (flight.enabled || dancers.length === 0 || cameraFocus) return;
     const dancer = raycastDancer(e.clientX, e.clientY);
     if (dancer) triggerAffirmation(dancer);
 }
@@ -864,6 +927,8 @@ function animate(currentTime) {
                 flight.velocity.set(0, 0, 0);
                 if (!flight.enabled) controls.target.set(0, 0, 0);
             }
+        } else if (cameraFocus) {
+            updateCameraFocus(dt);
         } else {
             flight.update(dt);
             if (!flight.enabled) controls.update();
