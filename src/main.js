@@ -9,6 +9,7 @@ import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 import AssetLoader from './components/assetLoader.js';
 import { CloudField } from './components/clouds.js';
 import { FlightControls } from './components/flight.js';
+import { FireworkSystem } from './components/fireworks.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 let previousTime = 0;
@@ -37,6 +38,7 @@ const FADE_SECONDS = 2.5;
 const audioParams = { volume: 0.5 };
 let clouds = null;
 let flight = null;
+let fireworks = null;
 const dancerRaycaster = new THREE.Raycaster();
 const cloudParams = { enabled: true, density: 1.0 };
 const SPAWN_POSITION = new THREE.Vector3(0, 30, 100);
@@ -199,6 +201,9 @@ function init() {
     clouds.applyPreset('001'); // matches the default Day HDRI
     scene.add(clouds.group);
 
+    fireworks = new FireworkSystem();
+    scene.add(fireworks.points);
+
     flight = new FlightControls(camera, renderer.domElement, {
         onEnter: () => {
             controls.enabled = false;
@@ -241,6 +246,31 @@ function init() {
         takePhoto();
     }, false);
     renderer.domElement.addEventListener('click', onDancerClick);
+    renderer.domElement.addEventListener('dblclick', onFireworkDoubleClick);
+}
+
+function onFireworkDoubleClick(e) {
+    if (flight.enabled) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    const rayDir = new THREE.Vector3(ndc.x, ndc.y, 0.5).unproject(camera).sub(camera.position);
+    rayDir.y = 0;
+    if (rayDir.lengthSq() < 1e-6) {
+        camera.getWorldDirection(rayDir);
+        rayDir.y = 0;
+    }
+    rayDir.normalize();
+
+    const dist = 400 + Math.random() * 400;
+    const origin = new THREE.Vector3(
+        camera.position.x + rayDir.x * dist,
+        5 + Math.random() * 15, // launches from near the horizon
+        camera.position.z + rayDir.z * dist
+    );
+    fireworks.launch(origin);
 }
 
 function applyCloudDensity() {
@@ -708,6 +738,7 @@ function animate(currentTime) {
         }
 
         clouds.update(currentTime / 1000, camera, currentBass);
+        fireworks.update(dt);
         const washEl = document.getElementById('cloud-wash');
         washEl.style.opacity = (clouds.washDensity * 0.92).toFixed(3);
         washEl.style.background = `rgb(${clouds.washColor})`;
