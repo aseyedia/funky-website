@@ -11,16 +11,19 @@ const DECK_ALTITUDE = 900;
 
 // Per-HDRI presets: cloud tint (HDR-ish values survive ACES), deck opacity,
 // CSS color for the in-cloud screen wash, and whether clouds fit the sky at all.
+// sun: unit-ish direction toward the sun in the equirect HDRI, estimated by
+// scanning each .hdr for its brightest pixel and converting equirect UV to a
+// world direction (top-of-image = +Y). null where there's no visible sun disc.
 export const CLOUD_PRESETS = {
-    '001': { on: true,  tint: [1.9, 1.9, 1.95], deck: 0.45, wash: '255,255,255' }, // Day
-    '002': { on: true,  tint: [1.7, 1.15, 0.85], deck: 0.35, wash: '255,215,185' }, // Dusk
-    '003': { on: true,  tint: [0.55, 0.58, 0.62], deck: 0.55, wash: '150,155,160', fx: 'rain' }, // Stormy
-    '004': { on: true,  tint: [1.05, 1.07, 1.1], deck: 0.5,  wash: '225,228,232' }, // Overcast
-    '005': { on: true,  tint: [1.8, 1.2, 1.3],  deck: 0.35, wash: '255,205,215' }, // Pink Sunset
-    '006': { on: true,  tint: [0.35, 0.4, 0.55], deck: 0.3,  wash: '90,100,130' },  // Full Moon
-    '007': { on: true,  tint: [1.5, 1.25, 1.05], deck: 0.4,  wash: '245,225,200' }, // Cloudy Sunset
-    '008': { on: false, tint: [1.9, 1.9, 1.95], deck: 0.4,  wash: '255,255,255' }, // Another World
-    'memorial': { on: false, tint: [1.9, 1.9, 1.95], deck: 0.4, wash: '255,255,255' },
+    '001': { on: true,  tint: [1.9, 1.9, 1.95], deck: 0.45, wash: '255,255,255', sun: [0.870, 0.462, 0.174] }, // Day
+    '002': { on: true,  tint: [1.7, 1.15, 0.85], deck: 0.35, wash: '255,215,185', sun: [-0.499, 0.250, -0.830] }, // Dusk
+    '003': { on: true,  tint: [0.55, 0.58, 0.62], deck: 0.55, wash: '150,155,160', fx: 'rain', sun: null }, // Stormy
+    '004': { on: true,  tint: [1.05, 1.07, 1.1], deck: 0.5,  wash: '225,228,232', sun: null }, // Overcast
+    '005': { on: true,  tint: [1.8, 1.2, 1.3],  deck: 0.35, wash: '255,205,215', sun: [0.840, 0.230, -0.491] }, // Pink Sunset
+    '006': { on: true,  tint: [0.35, 0.4, 0.55], deck: 0.3,  wash: '90,100,130', sun: null },  // Full Moon
+    '007': { on: true,  tint: [1.5, 1.25, 1.05], deck: 0.4,  wash: '245,225,200', sun: [0.237, 0.109, -0.965] }, // Cloudy Sunset
+    '008': { on: false, tint: [1.9, 1.9, 1.95], deck: 0.4,  wash: '255,255,255', sun: [-0.503, 0.539, -0.676] }, // Another World
+    'memorial': { on: false, tint: [1.9, 1.9, 1.95], deck: 0.4, wash: '255,255,255', sun: null },
 };
 
 function makePuffTexture(size = 256) {

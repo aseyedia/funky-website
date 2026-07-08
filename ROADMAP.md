@@ -109,7 +109,7 @@ Makes the world feel alive. ~24 birds circling the text monument.
 
 ## Phase 2 — atmosphere (Sonnet for 2.1/2.2, Opus for 2.3)
 
-### 2.1 Lens flare per HDRI  — model: Sonnet
+### 2.1 Lens flare per HDRI  — model: Sonnet — DONE (sun directions computed from brightest-pixel HDR analysis, not eyeballed; GUI "Sun (flare tuning)" folder live-tunes + writes back to CLOUD_PRESETS; console-clean across all 9 presets; please glance live and nudge the sliders if a flare looks off)
 - three addon `Lensflare` + `LensflareElement`, textures generated on canvas
   (radial gradients — same trick as clouds.js `makePuffTexture`).
 - Add `sun: [x, y, z] | null` to each `CLOUD_PRESETS` entry (estimate sun

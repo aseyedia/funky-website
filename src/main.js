@@ -9,6 +9,7 @@ import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 import AssetLoader from './components/assetLoader.js';
 import { CloudField, CLOUD_PRESETS } from './components/clouds.js';
 import { RainSystem } from './components/rain.js';
+import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare.js';
 import { FlightControls } from './components/flight.js';
 import { FireworkSystem } from './components/fireworks.js';
 import { BirdFlock } from './components/birds.js';
@@ -43,6 +44,11 @@ let flight = null;
 let fireworks = null;
 let birds = null;
 let rain = null;
+let sunFlare = null;
+let sunFlareAnchor = null;
+const SUN_DISTANCE = 5000;
+const sunTuneParams = { x: 0, y: 0, z: 0 };
+let currentSunPresetKey = '001';
 const DIR_LIGHT_BASE_INTENSITY = 2.5;
 const weatherParams = { rain: false };
 let lightningScheduled = false;
@@ -220,6 +226,9 @@ function init() {
     scene.add(rain.points);
     applyWeatherForPreset('001'); // matches the default Day HDRI
 
+    setupSunFlare();
+    applySunForPreset('001');
+
     flight = new FlightControls(camera, renderer.domElement, {
         onEnter: () => {
             controls.enabled = false;
@@ -303,6 +312,68 @@ function setQuality(lowered) {
     if (msg !== lastQualityLog) {
         console.log(msg);
         lastQualityLog = msg;
+    }
+}
+
+function makeFlareTexture(size, stops) {
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    stops.forEach(([offset, color]) => g.addColorStop(offset, color));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, size, size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+}
+
+function setupSunFlare() {
+    const glowTex = makeFlareTexture(256, [
+        [0, 'rgba(255,255,255,1)'],
+        [0.2, 'rgba(255,250,230,0.8)'],
+        [0.5, 'rgba(255,240,200,0.22)'],
+        [1, 'rgba(255,240,200,0)'],
+    ]);
+    const ringTex = makeFlareTexture(128, [
+        [0, 'rgba(255,255,255,0)'],
+        [0.35, 'rgba(255,255,255,0)'],
+        [0.5, 'rgba(210,225,255,0.45)'],
+        [0.68, 'rgba(210,225,255,0)'],
+        [1, 'rgba(210,225,255,0)'],
+    ]);
+
+    sunFlare = new Lensflare();
+    sunFlare.addElement(new LensflareElement(glowTex, 700, 0));
+    sunFlare.addElement(new LensflareElement(ringTex, 120, 0.3));
+    sunFlare.addElement(new LensflareElement(ringTex, 60, 0.5));
+    sunFlare.addElement(new LensflareElement(ringTex, 180, 0.75));
+    sunFlare.addElement(new LensflareElement(ringTex, 90, 1.0));
+
+    sunFlareAnchor = new THREE.Object3D();
+    sunFlareAnchor.add(sunFlare);
+    scene.add(sunFlareAnchor);
+}
+
+function updateSunFlarePosition() {
+    const dir = new THREE.Vector3(sunTuneParams.x, sunTuneParams.y, sunTuneParams.z);
+    if (dir.lengthSq() < 1e-6) dir.set(0, 1, 0);
+    dir.normalize();
+    sunFlareAnchor.position.copy(dir.multiplyScalar(SUN_DISTANCE));
+}
+
+function applySunForPreset(key) {
+    currentSunPresetKey = key;
+    const preset = CLOUD_PRESETS[key];
+    const sun = preset && preset.sun;
+    if (sun) {
+        sunTuneParams.x = sun[0];
+        sunTuneParams.y = sun[1];
+        sunTuneParams.z = sun[2];
+        updateSunFlarePosition();
+        sunFlare.visible = true;
+    } else {
+        sunFlare.visible = false;
     }
 }
 
@@ -949,6 +1020,7 @@ function initGUI() {
         const presetKey = value.split('/').pop().replace('.hdr', '');
         clouds.applyPreset(presetKey);
         applyWeatherForPreset(presetKey);
+        applySunForPreset(presetKey);
     });
 
     hdrFolder.close();
@@ -958,6 +1030,20 @@ function initGUI() {
     skyFolder.add(cloudParams, 'density', 0, 1).name('Density').onChange(() => applyCloudDensity());
     skyFolder.add(weatherParams, 'rain').name('Rain').listen().onChange(v => rain.setUserEnabled(v));
     skyFolder.close();
+
+    // Temporary: sun direction was estimated from each HDRI's brightest pixel.
+    // Tune live per-preset here, then bake the numbers back into CLOUD_PRESETS.
+    const sunFolder = gui.addFolder('Sun (flare tuning)');
+    const onSunTuneChange = () => {
+        updateSunFlarePosition();
+        if (CLOUD_PRESETS[currentSunPresetKey].sun) {
+            CLOUD_PRESETS[currentSunPresetKey].sun = [sunTuneParams.x, sunTuneParams.y, sunTuneParams.z];
+        }
+    };
+    sunFolder.add(sunTuneParams, 'x', -1, 1, 0.01).listen().onChange(onSunTuneChange);
+    sunFolder.add(sunTuneParams, 'y', -1, 1, 0.01).listen().onChange(onSunTuneChange);
+    sunFolder.add(sunTuneParams, 'z', -1, 1, 0.01).listen().onChange(onSunTuneChange);
+    sunFolder.close();
 
     if (!isMobile()) {
         const flightFolder = gui.addFolder('Flight');
