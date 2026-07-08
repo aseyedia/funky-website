@@ -119,7 +119,7 @@ Makes the world feel alive. ~24 birds circling the text monument.
 - Acceptance: Day/Dusk/Pink Sunset show a flare that occludes behind the
   text mesh; no flare on sunless presets; HDRI switch swaps flare correctly.
 
-### 2.2 Rain + lightning for Stormy  — model: Sonnet (rain) / Opus if shader trouble
+### 2.2 Rain + lightning for Stormy  — model: Sonnet (rain) / Opus if shader trouble — DONE (console-clean incl. full lightning/thunder cycle; please glance live for visuals)
 - Rain: one THREE.Points field (~2000 streaks, cylinder around camera,
   y wraps mod height; vertex shader stretches points into streaks via
   gl_PointSize + a smear in the fragment). Follows camera like clouds tile.

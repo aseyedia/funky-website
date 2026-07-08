@@ -14,7 +14,7 @@ const DECK_ALTITUDE = 900;
 export const CLOUD_PRESETS = {
     '001': { on: true,  tint: [1.9, 1.9, 1.95], deck: 0.45, wash: '255,255,255' }, // Day
     '002': { on: true,  tint: [1.7, 1.15, 0.85], deck: 0.35, wash: '255,215,185' }, // Dusk
-    '003': { on: true,  tint: [0.55, 0.58, 0.62], deck: 0.55, wash: '150,155,160' }, // Stormy
+    '003': { on: true,  tint: [0.55, 0.58, 0.62], deck: 0.55, wash: '150,155,160', fx: 'rain' }, // Stormy
     '004': { on: true,  tint: [1.05, 1.07, 1.1], deck: 0.5,  wash: '225,228,232' }, // Overcast
     '005': { on: true,  tint: [1.8, 1.2, 1.3],  deck: 0.35, wash: '255,205,215' }, // Pink Sunset
     '006': { on: true,  tint: [0.35, 0.4, 0.55], deck: 0.3,  wash: '90,100,130' },  // Full Moon

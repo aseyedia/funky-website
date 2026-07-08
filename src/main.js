@@ -7,7 +7,8 @@ import { TextGeometry } from 'three/examples/jsm/geometries/TextGeometry.js';
 import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
 import { cubeToy, updateCube, cubeParams } from './components/cube.js';
 import AssetLoader from './components/assetLoader.js';
-import { CloudField } from './components/clouds.js';
+import { CloudField, CLOUD_PRESETS } from './components/clouds.js';
+import { RainSystem } from './components/rain.js';
 import { FlightControls } from './components/flight.js';
 import { FireworkSystem } from './components/fireworks.js';
 import { BirdFlock } from './components/birds.js';
@@ -28,7 +29,7 @@ if (stats) {
 const performanceStart = performance.now();
 console.log('Script start time:', performanceStart);
 
-let scene, camera, renderer, controls, transformControl, sound, water;
+let scene, camera, renderer, controls, transformControl, sound, water, dirLight;
 let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
 let analyser = null;
 let bassSmooth = 0; // slow-moving bass baseline, used to isolate beat transients
@@ -41,6 +42,12 @@ let clouds = null;
 let flight = null;
 let fireworks = null;
 let birds = null;
+let rain = null;
+const DIR_LIGHT_BASE_INTENSITY = 2.5;
+const weatherParams = { rain: false };
+let lightningScheduled = false;
+let nextLightningAt = 0;
+let lightningFlashFrames = 0;
 const dancerRaycaster = new THREE.Raycaster();
 const cloudParams = { enabled: true, density: 1.0 };
 const SPAWN_POSITION = new THREE.Vector3(0, 30, 100);
@@ -209,6 +216,10 @@ function init() {
     birds = new BirdFlock();
     scene.add(birds.mesh);
 
+    rain = new RainSystem();
+    scene.add(rain.points);
+    applyWeatherForPreset('001'); // matches the default Day HDRI
+
     flight = new FlightControls(camera, renderer.domElement, {
         onEnter: () => {
             controls.enabled = false;
@@ -295,6 +306,48 @@ function setQuality(lowered) {
     }
 }
 
+function applyWeatherForPreset(key) {
+    const preset = CLOUD_PRESETS[key];
+    rain.setPresetActive(!!preset && preset.fx === 'rain');
+    weatherParams.rain = rain.enabled;
+    lightningScheduled = false; // reschedule fresh whenever rain's active state changes
+}
+
+function scheduleNextLightning(atTime) {
+    nextLightningAt = atTime + 6000 + Math.random() * 8000;
+}
+
+function triggerLightning() {
+    dirLight.intensity = DIR_LIGHT_BASE_INTENSITY * 8;
+    renderer.toneMappingExposure = params.exposure * 2.2;
+    lightningFlashFrames = 2;
+    setTimeout(playThunder, 500 + Math.random() * 1500);
+}
+
+function playThunder() {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const duration = 1.2;
+    const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(400, ctx.currentTime);
+    filter.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + duration);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.5, ctx.currentTime + 0.08);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+    noise.connect(filter).connect(gain).connect(ctx.destination);
+    noise.start();
+    noise.stop(ctx.currentTime + duration);
+    noise.onended = () => ctx.close();
+}
+
 function startHoming() {
     if (homing) return;
     homing = true;
@@ -361,7 +414,7 @@ function setupLights() {
     const ambLight = new THREE.AmbientLight(0xffffff, 1.5);
     scene.add(ambLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 2.5);
+    dirLight = new THREE.DirectionalLight(0xffffff, DIR_LIGHT_BASE_INTENSITY);
     dirLight.position.set(5, 10, 7.5);
     dirLight.castShadow = true;
     scene.add(dirLight);
@@ -745,6 +798,28 @@ function animate(currentTime) {
         clouds.update(currentTime / 1000, camera, currentBass);
         fireworks.update(dt);
         birds.update(dt, currentTime / 1000);
+        rain.update(currentTime / 1000, camera);
+        weatherParams.rain = rain.enabled;
+
+        if (rain.enabled) {
+            if (!lightningScheduled) {
+                scheduleNextLightning(currentTime);
+                lightningScheduled = true;
+            }
+            if (currentTime >= nextLightningAt) {
+                triggerLightning();
+                scheduleNextLightning(currentTime);
+            }
+        } else {
+            lightningScheduled = false;
+        }
+        if (lightningFlashFrames > 0) {
+            lightningFlashFrames--;
+            if (lightningFlashFrames === 0) {
+                dirLight.intensity = DIR_LIGHT_BASE_INTENSITY;
+                renderer.toneMappingExposure = params.exposure;
+            }
+        }
         const washEl = document.getElementById('cloud-wash');
         washEl.style.opacity = (clouds.washDensity * 0.92).toFixed(3);
         washEl.style.background = `rgb(${clouds.washColor})`;
@@ -871,7 +946,9 @@ function initGUI() {
         // prepend hdr/ocean_hdri to value
         const path = `${import.meta.env.BASE_URL}hdr/ocean_hdri/${value}`;
         loadHDRI(path);
-        clouds.applyPreset(value.split('/').pop().replace('.hdr', ''));
+        const presetKey = value.split('/').pop().replace('.hdr', '');
+        clouds.applyPreset(presetKey);
+        applyWeatherForPreset(presetKey);
     });
 
     hdrFolder.close();
@@ -879,6 +956,7 @@ function initGUI() {
     const skyFolder = gui.addFolder('Clouds');
     skyFolder.add(cloudParams, 'enabled').name('Enable').onChange(v => clouds.setUserEnabled(v));
     skyFolder.add(cloudParams, 'density', 0, 1).name('Density').onChange(() => applyCloudDensity());
+    skyFolder.add(weatherParams, 'rain').name('Rain').listen().onChange(v => rain.setUserEnabled(v));
     skyFolder.close();
 
     if (!isMobile()) {
