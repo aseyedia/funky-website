@@ -174,7 +174,7 @@ a floating 3D title, holding a project card.
 
 ## Phase 4 — polish / defense (Sonnet)
 
-### 4.1 Adaptive quality
+### 4.1 Adaptive quality — DONE
 - Rolling 3s FPS average (reuse the throttle block). If < 40: drop
   pixelRatio one notch (min 1), halve cloud density, disable rain; if > 55
   for 10s, restore one notch. Log decisions once each (no spam). GUI

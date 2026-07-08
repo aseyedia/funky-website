@@ -44,6 +44,15 @@ let homeElapsed = 0;
 const HOME_SECONDS = 1.5;
 const homeFrom = new THREE.Vector3();
 
+// Adaptive quality: one-step pixelRatio + cloud-density drop under load.
+let basePixelRatio = 1;
+let qualityLowered = false;
+let qualityDensityScale = 1;
+let fpsAvg = 60;
+let highFpsSince = null;
+let lastQualityLog = null;
+const qualityParams = { mode: 'auto' };
+
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
 let currentCube = null;
@@ -199,6 +208,23 @@ function init() {
     }, false);
 }
 
+function applyCloudDensity() {
+    clouds.setDensity(cloudParams.density * qualityDensityScale);
+}
+
+function setQuality(lowered) {
+    if (lowered === qualityLowered) return;
+    qualityLowered = lowered;
+    renderer.setPixelRatio(lowered ? Math.max(1, basePixelRatio - 0.5) : basePixelRatio);
+    qualityDensityScale = lowered ? 0.5 : 1;
+    applyCloudDensity();
+    const msg = lowered ? 'Adaptive quality: dropped (low fps)' : 'Adaptive quality: restored';
+    if (msg !== lastQualityLog) {
+        console.log(msg);
+        lastQualityLog = msg;
+    }
+}
+
 function startHoming() {
     if (homing) return;
     homing = true;
@@ -242,7 +268,8 @@ function setupScene() {
 
 function setupRenderer() {
     renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isMobile() ? 1.5 : 2));
+    basePixelRatio = Math.min(window.devicePixelRatio, isMobile() ? 1.5 : 2);
+    renderer.setPixelRatio(basePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.shadowMap.enabled = true;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -516,6 +543,22 @@ function animate(currentTime) {
         if (stats) stats.begin();
 
         const dt = deltaTime / 1000;
+
+        if (qualityParams.mode === 'auto') {
+            const dtSafe = Math.min(dt, 0.1);
+            const instFps = dtSafe > 0 ? 1 / dtSafe : fpsAvg;
+            fpsAvg += (instFps - fpsAvg) * (1 - Math.exp(-dtSafe / 3)); // ~3s rolling average
+            if (fpsAvg < 40) {
+                highFpsSince = null;
+                setQuality(true);
+            } else if (fpsAvg > 55) {
+                if (highFpsSince === null) highFpsSince = currentTime;
+                if (currentTime - highFpsSince >= 10000) setQuality(false);
+            } else {
+                highFpsSince = null;
+            }
+        }
+
         if (homing) {
             homeElapsed += dt;
             const t = Math.min(1, homeElapsed / HOME_SECONDS);
@@ -649,6 +692,12 @@ function initGUI() {
     const gui = new GUI();
     gui.add({ home: () => startHoming() }, 'home').name('Return home (H)');
     gui.add({ photo: () => takePhoto() }, 'photo').name('Photo (P)');
+    gui.add(qualityParams, 'mode', ['auto', 'high', 'low']).name('Quality').onChange(v => {
+        highFpsSince = null;
+        if (v === 'high') setQuality(false);
+        else if (v === 'low') setQuality(true);
+        // 'auto' just lets the rolling-fps loop take back over from here
+    });
 
     const hdrFolder = gui.addFolder('HDRI');
     const hdrOptions = {
@@ -675,7 +724,7 @@ function initGUI() {
 
     const skyFolder = gui.addFolder('Clouds');
     skyFolder.add(cloudParams, 'enabled').name('Enable').onChange(v => clouds.setUserEnabled(v));
-    skyFolder.add(cloudParams, 'density', 0, 1).name('Density').onChange(v => clouds.setDensity(v));
+    skyFolder.add(cloudParams, 'density', 0, 1).name('Density').onChange(() => applyCloudDensity());
     skyFolder.close();
 
     if (!isMobile()) {
