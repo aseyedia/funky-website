@@ -757,7 +757,9 @@ function raycastDancer(clientX, clientY) {
         -((clientY - rect.top) / rect.height) * 2 + 1
     );
     dancerRaycaster.setFromCamera(ndc, camera);
-    const hits = dancerRaycaster.intersectObjects(dancers.map(d => d.model), true);
+    // three.js raycasting ignores Object3D.visible entirely (it only affects
+    // rendering) — filter out disabled dancers ourselves or they stay clickable.
+    const hits = dancerRaycaster.intersectObjects(dancers.filter(d => d.model.visible).map(d => d.model), true);
     if (hits.length === 0) return null;
     const hitObj = hits[0].object;
     return dancers.find(d => {
