@@ -66,7 +66,7 @@ const HOME_SECONDS = 1.5;
 const homeFrom = new THREE.Vector3();
 let cameraFocus = null; // { dancer, savedPos, savedTarget, phase: 'in'|'holding'|'out', elapsed }
 const CAMERA_FOCUS_SECONDS = 1.2;
-const CAMERA_FOCUS_MAX_HOLD_MS = 8000;
+const CAMERA_FOCUS_MAX_HOLD_MS = 30000; // safety net only — a 60-token TTS reply can run 15-20s
 const CAMERA_FOCUS_DISTANCE = 18;
 const cameraFocusFrom = new THREE.Vector3();
 const cameraFocusTo = new THREE.Vector3();
@@ -153,7 +153,7 @@ const AFFIRMATIONS = [
     "Take a breath. You are safe, and you are loved.",
 ];
 
-const AI_LINE_COOLDOWN_MS = 45000;
+const AI_LINE_COOLDOWN_MS = 8000; // just enough to block double-click spam; the server's daily cap is the real cost backstop
 const AI_LINE_TIMEOUT_MS = 6000;
 
 init();
@@ -638,6 +638,7 @@ function enableDancer() {
     if (dancers.length > 0) {
         dancers.forEach(d => {
             d.model.visible = true;
+            if (d.glow) d.glow.visible = true;
             playDancerNextAnimation(d);
         });
         return;
@@ -645,6 +646,12 @@ function enableDancer() {
     if (dancersLoading) return;
     dancersLoading = true;
     showLazyStatus('dancers', 'loading dancers...');
+
+    const dancerGlowTexture = makeFlareTexture(128, [
+        [0, 'rgba(255,221,85,0.6)'],
+        [0.4, 'rgba(255,221,85,0.28)'],
+        [1, 'rgba(255,221,85,0)'],
+    ]);
 
     let remaining = DANCER_POSITIONS.length;
     DANCER_POSITIONS.forEach((pos, i) => {
@@ -660,6 +667,36 @@ function enableDancer() {
                     }
                 });
                 scene.add(fbx);
+
+                // Invisible, generously-sized proxy for click/hover raycasting —
+                // the exact mesh silhouette (arms/legs mid-dance) makes for a
+                // frustratingly small real hitbox. Child of fbx, so it moves
+                // with the dancer and the existing parent-walk in raycastDancer
+                // still resolves it back to this dancer.
+                // fbx itself carries a x10 scale (glTF meters -> old FBX-derived
+                // scene scale), so these local dimensions become radius 10 /
+                // height 22 / y-center 11 in world units once rendered.
+                const hitZone = new THREE.Mesh(
+                    new THREE.CylinderGeometry(1, 1, 2.2, 8),
+                    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+                );
+                hitZone.position.y = 1.1;
+                fbx.add(hitZone);
+
+                // Soft glow on the water beneath each dancer, hinting they're
+                // clickable before anyone hovers. Flat plane (not a sprite) so
+                // it actually lies on the water instead of billboarding.
+                const glow = new THREE.Mesh(
+                    new THREE.PlaneGeometry(26, 26),
+                    new THREE.MeshBasicMaterial({
+                        map: dancerGlowTexture, transparent: true, depthWrite: false,
+                        blending: THREE.AdditiveBlending, opacity: 0.35,
+                    })
+                );
+                glow.rotation.x = -Math.PI / 2;
+                glow.position.set(pos.x, 0.15, pos.z);
+                scene.add(glow);
+
                 const dancerMixer = new THREE.AnimationMixer(fbx);
                 const animOffset = Math.floor(i * danceAnimations.length / DANCER_POSITIONS.length);
                 const dancer = {
@@ -669,6 +706,10 @@ function enableDancer() {
                     // "mixamorig8:Head" comes through as "mixamorig8Head".
                     headBone: fbx.getObjectByName('mixamorig8Head'), talking: false,
                     bubbleEl: null,
+                    // stable per-dancer voice slot (0/1/2) — set from the DANCER_POSITIONS
+                    // loop index, not push order, since these callbacks resolve async
+                    voiceIndex: i,
+                    hitZone, glow,
                 };
                 dancers.push(dancer);
                 playDancerNextAnimation(dancer);
@@ -689,6 +730,7 @@ function disableDancer() {
         // permanently unclickable after re-enabling — nothing else clears it.
         d.talking = false;
         d.model.visible = false;
+        if (d.glow) d.glow.visible = false;
     });
 }
 
@@ -730,6 +772,12 @@ function triggerAffirmation(dancer) {
     }
 }
 
+function scheduleReadingTimeFinish(dancer, action, text) {
+    const words = text.split(/\s+/).length;
+    const seconds = Math.max(3, words * 0.35);
+    setTimeout(() => finishTalking(dancer, action), seconds * 1000);
+}
+
 function fetchDancerLine(dancer) {
     AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
         if (!clip) {
@@ -746,6 +794,8 @@ function fetchDancerLine(dancer) {
 
         fetch(`${import.meta.env.BASE_URL}api/dancer-line`, {
             method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ voiceIndex: dancer.voiceIndex }),
             signal: AbortSignal.timeout(AI_LINE_TIMEOUT_MS),
         })
             .then((r) => {
@@ -757,11 +807,17 @@ function fetchDancerLine(dancer) {
                 localStorage.setItem('funky_ai_line_cooldown', String(Date.now()));
                 showAffirmationBubble(dancer, text);
                 if (audio) {
-                    playDancerAudio(audio, () => finishTalking(dancer, action));
+                    // if audio fails to actually play (autoplay policy, decode error,
+                    // etc.) degrade to the same reading-time estimate the no-audio
+                    // branch uses below — never snap the bubble/camera shut instantly,
+                    // that used to happen on any audio hiccup, not just Safari.
+                    playDancerAudio(
+                        audio,
+                        () => finishTalking(dancer, action),
+                        () => scheduleReadingTimeFinish(dancer, action, text)
+                    );
                 } else {
-                    const words = text.split(/\s+/).length;
-                    const seconds = Math.max(3, words * 0.35);
-                    setTimeout(() => finishTalking(dancer, action), seconds * 1000);
+                    scheduleReadingTimeFinish(dancer, action, text);
                 }
             })
             .catch(() => {
@@ -775,13 +831,14 @@ function fetchDancerLine(dancer) {
 let duckTarget = 1;
 let duckFactor = 1;
 
-function playDancerAudio(base64Mp3, onEnded) {
+function playDancerAudio(base64Mp3, onEnded, onFailure) {
     const audioEl = new Audio(`data:audio/mpeg;base64,${base64Mp3}`);
     duckTarget = 0.25;
     const stopDucking = () => { duckTarget = 1; onEnded(); };
+    const handleFailure = () => { duckTarget = 1; onFailure(); };
     audioEl.addEventListener('ended', stopDucking);
-    audioEl.addEventListener('error', stopDucking);
-    audioEl.play().catch(stopDucking);
+    audioEl.addEventListener('error', handleFailure);
+    audioEl.play().catch(handleFailure);
 }
 
 function playCannedAffirmation(dancer) {
@@ -836,7 +893,10 @@ function raycastDancer(clientX, clientY) {
     dancerRaycaster.setFromCamera(ndc, camera);
     // three.js raycasting ignores Object3D.visible entirely (it only affects
     // rendering) — filter out disabled dancers ourselves or they stay clickable.
-    const hits = dancerRaycaster.intersectObjects(dancers.filter(d => d.model.visible).map(d => d.model), true);
+    // Raycasts against hitZone (a generous invisible cylinder), not the exact
+    // mesh silhouette — arms/legs mid-dance make for a frustratingly small
+    // real hitbox otherwise.
+    const hits = dancerRaycaster.intersectObjects(dancers.filter(d => d.model.visible).map(d => d.hitZone), true);
     if (hits.length === 0) return null;
     const hitObj = hits[0].object;
     return dancers.find(d => {
@@ -858,9 +918,13 @@ function onDancerClick(e) {
 let hoveredDancer = null;
 
 function setDancerHighlight(dancer, on) {
-    if (!dancer.mesh) return;
-    dancer.mesh.material.emissive.setHex(on ? 0xffdd55 : 0x000000);
-    dancer.mesh.material.emissiveIntensity = on ? 0.6 : 0;
+    if (dancer.mesh) {
+        dancer.mesh.material.emissive.setHex(on ? 0xffdd55 : 0x000000);
+        dancer.mesh.material.emissiveIntensity = on ? 0.6 : 0;
+    }
+    if (dancer.glow) {
+        dancer.glow.material.opacity = on ? 0.75 : 0.35;
+    }
 }
 
 function onDancerHover(e) {
