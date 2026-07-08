@@ -36,6 +36,11 @@ const audioParams = { volume: 0.5 };
 let clouds = null;
 let flight = null;
 const cloudParams = { enabled: true, density: 1.0 };
+const SPAWN_POSITION = new THREE.Vector3(0, 30, 100);
+let homing = false;
+let homeElapsed = 0;
+const HOME_SECONDS = 1.5;
+const homeFrom = new THREE.Vector3();
 
 const textMeshes = [];
 const params = { roughness: 0.1, metalness: 1.0, exposure: 1.0 };
@@ -175,6 +180,18 @@ function init() {
         if (e.target.tagName === 'INPUT') return; // lil-gui fields
         flight.enabled ? flight.exit() : flight.enter();
     }, false);
+    window.addEventListener('keydown', e => {
+        if (e.code !== 'KeyH' || e.repeat) return;
+        if (e.target.tagName === 'INPUT') return; // lil-gui fields
+        startHoming();
+    }, false);
+}
+
+function startHoming() {
+    if (homing) return;
+    homing = true;
+    homeElapsed = 0;
+    homeFrom.copy(camera.position);
 }
 
 function isMobile() {
@@ -186,7 +203,7 @@ function setupCamera() {
     const fov = isMobile() ? 80 : 40;
     // far plane covers the cloud tile + deck fade so nothing clips mid-flight
     camera = new THREE.PerspectiveCamera(fov, window.innerWidth / window.innerHeight, 1, 8000);
-    camera.position.set(0, 30, 100);
+    camera.position.copy(SPAWN_POSITION);
 }
 
 function setupScene() {
@@ -470,8 +487,20 @@ function animate(currentTime) {
         if (stats) stats.begin();
 
         const dt = deltaTime / 1000;
-        flight.update(dt);
-        if (!flight.enabled) controls.update();
+        if (homing) {
+            homeElapsed += dt;
+            const t = Math.min(1, homeElapsed / HOME_SECONDS);
+            const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+            camera.position.lerpVectors(homeFrom, SPAWN_POSITION, eased);
+            if (t >= 1) {
+                homing = false;
+                flight.velocity.set(0, 0, 0);
+                if (!flight.enabled) controls.target.set(0, 0, 0);
+            }
+        } else {
+            flight.update(dt);
+            if (!flight.enabled) controls.update();
+        }
 
         if (water) {
             // infinite ocean: keep the plane centered under the camera
@@ -581,6 +610,7 @@ function removeSettings(cubeFolder) {
 
 function initGUI() {
     const gui = new GUI();
+    gui.add({ home: () => startHoming() }, 'home').name('Return home (H)');
 
     const hdrFolder = gui.addFolder('HDRI');
     const hdrOptions = {
