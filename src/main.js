@@ -37,6 +37,7 @@ const FADE_SECONDS = 2.5;
 const audioParams = { volume: 0.5 };
 let clouds = null;
 let flight = null;
+const dancerRaycaster = new THREE.Raycaster();
 const cloudParams = { enabled: true, density: 1.0 };
 const SPAWN_POSITION = new THREE.Vector3(0, 30, 100);
 let homing = false;
@@ -101,6 +102,39 @@ const danceAnimations = [
     "models/anims/breakdance ending 1.glb",
     "models/anims/breakdance ending 2.glb",
     "models/anims/breakdance ending 3.glb",
+];
+
+const AFFIRMATIONS = [
+    "you're doing amazing, kid",
+    "hydrate!",
+    "your git history is beautiful",
+    "commit early, commit often",
+    "you've got main character energy",
+    "stretch your neck, you've earned it",
+    "somewhere a build is passing because of you",
+    "breathe. you're not blocking on anything right now",
+    "that bug you fixed? heroic",
+    "your code reviews make this place better",
+    "go touch grass after this",
+    "you smell like determination",
+    "the semicolon believes in you",
+    "ship it",
+    "your future self says thanks",
+    "take the stairs today, champ",
+    "you're one refactor away from greatness",
+    "somebody starred your repo today, probably",
+    "your rubber duck is proud",
+    "eat a vegetable, seriously",
+    "you debug like a detective",
+    "the cloud is just someone else's computer, and you own it",
+    "your posture called, it misses you",
+    "keep going, the compiler believes in you",
+    "you turned coffee into software today",
+    "that's a nice haircut, by the way",
+    "your commit messages are a gift to the future",
+    "somewhere, a test suite is green because of you",
+    "you've got this, no cap",
+    "dance break: mandatory, effective immediately",
 ];
 
 init();
@@ -206,6 +240,7 @@ function init() {
         if (e.target.tagName === 'INPUT') return; // lil-gui fields
         takePhoto();
     }, false);
+    renderer.domElement.addEventListener('click', onDancerClick);
 }
 
 function applyCloudDensity() {
@@ -400,7 +435,14 @@ function enableDancer() {
                 scene.add(fbx);
                 const dancerMixer = new THREE.AnimationMixer(fbx);
                 const animOffset = Math.floor(i * danceAnimations.length / DANCER_POSITIONS.length);
-                const dancer = { model: fbx, mixer: dancerMixer, animIndex: animOffset, currentAction: null, loading: false, clipElapsed: 0, clipDuration: Infinity };
+                const dancer = {
+                    model: fbx, mixer: dancerMixer, animIndex: animOffset, currentAction: null,
+                    loading: false, clipElapsed: 0, clipDuration: Infinity,
+                    // GLTFLoader strips ':' from node names, so the source rig's
+                    // "mixamorig8:Head" comes through as "mixamorig8Head".
+                    headBone: fbx.getObjectByName('mixamorig8Head'), talking: false,
+                    bubbleEl: null, bubbleUntil: 0,
+                };
                 dancers.push(dancer);
                 playDancerNextAnimation(dancer);
             }
@@ -441,6 +483,68 @@ function playDancerNextAnimation(dancer) {
         dancer.clipDuration = clip.duration;
         dancer.clipElapsed = 0;
     });
+}
+
+function triggerAffirmation(dancer) {
+    if (dancer.talking) return;
+    dancer.talking = true;
+    AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
+        if (!clip) {
+            dancer.talking = false;
+            return;
+        }
+        if (dancer.currentAction) dancer.currentAction.fadeOut(0.3);
+        const action = dancer.mixer.clipAction(clip);
+        action.reset();
+        action.setLoop(THREE.LoopRepeat, 2);
+        action.clampWhenFinished = true;
+        action.fadeIn(0.3);
+        action.play();
+        dancer.currentAction = action;
+        showAffirmationBubble(dancer);
+
+        const onFinished = (e) => {
+            if (e.action !== action) return;
+            dancer.mixer.removeEventListener('finished', onFinished);
+            dancer.talking = false;
+            playDancerNextAnimation(dancer);
+        };
+        dancer.mixer.addEventListener('finished', onFinished);
+    });
+}
+
+function showAffirmationBubble(dancer) {
+    if (!dancer.bubbleEl) {
+        const el = document.createElement('div');
+        el.className = 'dancer-bubble';
+        document.body.appendChild(el);
+        dancer.bubbleEl = el;
+    }
+    dancer.bubbleEl.textContent = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
+    dancer.bubbleEl.style.display = 'block';
+    dancer.bubbleUntil = performance.now() + 4000;
+}
+
+function onDancerClick(e) {
+    if (flight.enabled || dancers.length === 0) return;
+    const rect = renderer.domElement.getBoundingClientRect();
+    const ndc = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    dancerRaycaster.setFromCamera(ndc, camera);
+    const hits = dancerRaycaster.intersectObjects(dancers.map(d => d.model), true);
+    if (hits.length === 0) return;
+    const hitObj = hits[0].object;
+    const dancer = dancers.find(d => {
+        let o = hitObj;
+        while (o) {
+            if (o === d.model) return true;
+            o = o.parent;
+        }
+        return false;
+    });
+    if (dancer) triggerAffirmation(dancer);
 }
 
 function createText(message, callback) {
@@ -610,7 +714,20 @@ function animate(currentTime) {
 
         dancers.forEach(d => {
             d.mixer.update(dt);
-            if (d.loading || !d.currentAction) return;
+
+            if (d.bubbleEl && d.bubbleEl.style.display !== 'none') {
+                if (performance.now() > d.bubbleUntil) {
+                    d.bubbleEl.style.display = 'none';
+                } else if (d.headBone) {
+                    const headPos = d.headBone.getWorldPosition(new THREE.Vector3());
+                    headPos.y += 3; // clear the top of the head
+                    headPos.project(camera);
+                    d.bubbleEl.style.left = `${(headPos.x * 0.5 + 0.5) * window.innerWidth}px`;
+                    d.bubbleEl.style.top = `${(-headPos.y * 0.5 + 0.5) * window.innerHeight}px`;
+                }
+            }
+
+            if (d.loading || d.talking || !d.currentAction) return;
             d.clipElapsed += dt;
             const ratio = d.clipElapsed / d.clipDuration;
             if ((ratio >= 0.7 && currentPunch > 0.25) || ratio >= 1.3) {

@@ -175,6 +175,22 @@
         }
         #crosshair.active { display: block; }
 
+        .dancer-bubble {
+            position: fixed;
+            display: none;
+            transform: translate(-50%, -100%);
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 0, 0.35);
+            border-radius: 20px;
+            color: #ff0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 7px 14px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100;
+        }
+
         /* photo mode: strip HUD for a clean capture */
         body.photo-mode .lil-gui,
         body.photo-mode #info-container,

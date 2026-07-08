@@ -212,7 +212,7 @@ Staged asset: `src/public/models/anims/talking.glb` — 3.8s talking-gesture
 clip, same Ch32 skeleton as the dancers, verified binding (52/52 targets).
 Load it like any dance clip.
 
-### 5.1 Canned affirmations  — model: Sonnet
+### 5.1 Canned affirmations  — model: Sonnet — DONE
 - Click a dancer (raycast; they're SkinnedMesh under clones — raycast
   against `dancer.model` subtree, `recursive: true`): dancer plays
   `talking.glb` (loop ×2, then back to dancing) while a speech bubble shows a
