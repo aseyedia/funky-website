@@ -1449,8 +1449,9 @@ function initGUI() {
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
 
-    const nameFolder = gui.addFolder('Name');
-    nameFolder.add({ persian: false }, 'persian').name('Persian (Farsi)').onChange(togglePersianName);
+    // Persian name toggle: hidden until the flat-plane look and font get
+    // revisited (createPersianNameMesh/togglePersianName below still work,
+    // just not wired into the GUI right now).
 
     const dancerFolder = gui.addFolder('Dancer');
     dancerFolder.add({ enabled: false }, 'enabled').name('Enable').onChange(value => {
