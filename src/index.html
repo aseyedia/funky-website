@@ -186,7 +186,9 @@
             font-family: monospace;
             font-size: 12px;
             padding: 7px 14px;
-            white-space: nowrap;
+            max-width: 80ch; /* ch = one monospace character's width, so this wraps ~80 chars/line */
+            white-space: normal;
+            text-align: center;
             pointer-events: none;
             z-index: 100;
         }

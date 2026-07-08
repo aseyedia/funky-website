@@ -433,6 +433,14 @@ function startHoming() {
 
 function startCameraFocus(dancer) {
     if (cameraFocus || !dancer.headBone) return;
+    // clear any hover glow immediately — it stays suppressed for the whole
+    // dolly (onDancerHover ignores hover while cameraFocus is active) until
+    // dolly-out fully completes
+    if (hoveredDancer) {
+        setDancerHighlight(hoveredDancer, false);
+        hoveredDancer = null;
+        renderer.domElement.style.cursor = 'auto';
+    }
     const headPos = dancer.headBone.getWorldPosition(new THREE.Vector3());
     const awayFromHead = new THREE.Vector3().subVectors(camera.position, headPos);
     if (awayFromHead.lengthSq() < 1e-6) awayFromHead.set(0, 0, 1);
@@ -928,7 +936,10 @@ function setDancerHighlight(dancer, on) {
 }
 
 function onDancerHover(e) {
-    if (flight.enabled || dancers.length === 0) {
+    // suppressed for the whole dolly (in/holding/out), not just while flying —
+    // otherwise a different idle dancer can light up mid-focus, promising a
+    // click that onDancerClick's cameraFocus guard will silently ignore
+    if (flight.enabled || dancers.length === 0 || cameraFocus) {
         if (hoveredDancer) {
             setDancerHighlight(hoveredDancer, false);
             hoveredDancer = null;
