@@ -10,6 +10,7 @@ import AssetLoader from './components/assetLoader.js';
 import { CloudField } from './components/clouds.js';
 import { FlightControls } from './components/flight.js';
 import { FireworkSystem } from './components/fireworks.js';
+import { BirdFlock } from './components/birds.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 let previousTime = 0;
@@ -39,6 +40,7 @@ const audioParams = { volume: 0.5 };
 let clouds = null;
 let flight = null;
 let fireworks = null;
+let birds = null;
 const dancerRaycaster = new THREE.Raycaster();
 const cloudParams = { enabled: true, density: 1.0 };
 const SPAWN_POSITION = new THREE.Vector3(0, 30, 100);
@@ -203,6 +205,9 @@ function init() {
 
     fireworks = new FireworkSystem();
     scene.add(fireworks.points);
+
+    birds = new BirdFlock();
+    scene.add(birds.mesh);
 
     flight = new FlightControls(camera, renderer.domElement, {
         onEnter: () => {
@@ -739,6 +744,7 @@ function animate(currentTime) {
 
         clouds.update(currentTime / 1000, camera, currentBass);
         fireworks.update(dt);
+        birds.update(dt, currentTime / 1000);
         const washEl = document.getElementById('cloud-wash');
         washEl.style.opacity = (clouds.washDensity * 0.92).toFixed(3);
         washEl.style.background = `rgb(${clouds.washColor})`;

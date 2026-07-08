@@ -85,7 +85,7 @@ from the horizon toward the sky, explodes into ~300 points.
 - Acceptance: double-click spawns firework, 60fps holds with 3 simultaneous,
   particles fade fully (no immortal points), works with clouds on.
 
-### 1.3 Seagulls (boids)  — model: Sonnet
+### 1.3 Seagulls (boids)  — model: Sonnet — DONE (console-clean; same unverifiable-headless shader caveat as 1.2, please glance live)
 Makes the world feel alive. ~24 birds circling the text monument.
 - New `src/components/birds.js`. Each bird = 2 triangles (flapping wings via
   vertex shader `sin(uTime * flapSpeed + phase)` on wing verts) in ONE
