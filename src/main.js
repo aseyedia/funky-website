@@ -31,6 +31,7 @@ let currentSkyTexture = null; // active HDR equirect, disposed on HDRI switch
 let analyser = null;
 let bassSmooth = 0; // slow-moving bass baseline, used to isolate beat transients
 let currentBass = 0;
+let currentPunch = 0; // transient kick strength, drives beat-synced dancer switches
 let fadeProgress = 1; // 0..1, ramps up in the render loop after each play()
 const FADE_SECONDS = 2.5;
 const audioParams = { volume: 0.5 };
@@ -339,6 +340,7 @@ function setupAudio(onLoaded) {
 
 function resetMusicVisuals() {
     currentBass = 0;
+    currentPunch = 0;
     textMeshes.forEach(m => m.scale.setScalar(1));
     if (water) water.material.uniforms['distortionScale'].value = 3.7;
 }
@@ -371,7 +373,7 @@ function enableDancer() {
                 scene.add(fbx);
                 const dancerMixer = new THREE.AnimationMixer(fbx);
                 const animOffset = Math.floor(i * danceAnimations.length / DANCER_POSITIONS.length);
-                const dancer = { model: fbx, mixer: dancerMixer, animIndex: animOffset, currentAction: null, loading: false };
+                const dancer = { model: fbx, mixer: dancerMixer, animIndex: animOffset, currentAction: null, loading: false, clipElapsed: 0, clipDuration: Infinity };
                 dancers.push(dancer);
                 playDancerNextAnimation(dancer);
             }
@@ -409,10 +411,8 @@ function playDancerNextAnimation(dancer) {
         action.fadeIn(0.5);
         action.play();
         dancer.currentAction = action;
-        // Schedule transition to next animation after one full play-through
-        setTimeout(() => {
-            if (dancer.currentAction === action) playDancerNextAnimation(dancer);
-        }, clip.duration * 1000);
+        dancer.clipDuration = clip.duration;
+        dancer.clipElapsed = 0;
     });
 }
 
@@ -555,8 +555,8 @@ function animate(currentTime) {
             bass /= 8 * 255;
             currentBass = bass;
             bassSmooth = bassSmooth * 0.92 + bass * 0.08;
-            const punch = Math.max(0, bass - bassSmooth) * 4;
-            textMeshes.forEach(m => m.scale.set(1 + punch * 0.2, 1 + punch * 0.6, 1 + punch * 0.2));
+            currentPunch = Math.max(0, bass - bassSmooth) * 4;
+            textMeshes.forEach(m => m.scale.set(1 + currentPunch * 0.2, 1 + currentPunch * 0.6, 1 + currentPunch * 0.2));
             if (water) water.material.uniforms['distortionScale'].value = 3.7 + bass * 4;
         }
 
@@ -565,7 +565,15 @@ function animate(currentTime) {
         washEl.style.opacity = (clouds.washDensity * 0.92).toFixed(3);
         washEl.style.background = `rgb(${clouds.washColor})`;
 
-        dancers.forEach(d => d.mixer.update(dt));
+        dancers.forEach(d => {
+            d.mixer.update(dt);
+            if (d.loading || !d.currentAction) return;
+            d.clipElapsed += dt;
+            const ratio = d.clipElapsed / d.clipDuration;
+            if ((ratio >= 0.7 && currentPunch > 0.25) || ratio >= 1.3) {
+                playDancerNextAnimation(d);
+            }
+        });
 
         renderer.render(scene, camera);
 

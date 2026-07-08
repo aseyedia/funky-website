@@ -57,7 +57,7 @@ per session, verify in the browser, commit, then stop.
 
 ## Phase 1 — quick wins (Sonnet-friendly, one session each)
 
-### 1.1 Beat-synced dancer moves  — model: Sonnet
+### 1.1 Beat-synced dancer moves  — model: Sonnet — DONE
 The scene already computes bass transients (`punch` in main.js). Make dancers
 switch animations ON the beat instead of on a setTimeout.
 - In `playDancerNextAnimation`, remove the setTimeout chain. Instead track
