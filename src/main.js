@@ -153,6 +153,9 @@ const AFFIRMATIONS = [
     "Take a breath. You are safe, and you are loved.",
 ];
 
+const AI_LINE_COOLDOWN_MS = 45000;
+const AI_LINE_TIMEOUT_MS = 6000;
+
 init();
 animate();
 
@@ -713,7 +716,69 @@ function triggerAffirmation(dancer) {
     if (dancer.talking || cameraFocus || homing) return;
     dancer.talking = true;
     startCameraFocus(dancer);
-    playCannedAffirmation(dancer);
+
+    const lastAiLineAt = Number(localStorage.getItem('funky_ai_line_cooldown') || 0);
+    const cooldownClear = Date.now() - lastAiLineAt >= AI_LINE_COOLDOWN_MS;
+
+    if (cooldownClear) {
+        fetchDancerLine(dancer);
+    } else {
+        playCannedAffirmation(dancer);
+    }
+}
+
+function fetchDancerLine(dancer) {
+    AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
+        if (!clip) {
+            dancer.talking = false;
+            return;
+        }
+        if (dancer.currentAction) dancer.currentAction.fadeOut(0.3);
+        const action = dancer.mixer.clipAction(clip);
+        action.reset();
+        action.setLoop(THREE.LoopRepeat, Infinity);
+        action.fadeIn(0.3);
+        action.play();
+        dancer.currentAction = action;
+
+        fetch(`${import.meta.env.BASE_URL}api/dancer-line`, {
+            method: 'POST',
+            signal: AbortSignal.timeout(AI_LINE_TIMEOUT_MS),
+        })
+            .then((r) => {
+                if (!r.ok) throw new Error(`status ${r.status}`);
+                return r.json();
+            })
+            .then(({ text, audio }) => {
+                if (dancer.currentAction !== action) return; // a fallback already took over
+                localStorage.setItem('funky_ai_line_cooldown', String(Date.now()));
+                showAffirmationBubble(dancer, text);
+                if (audio) {
+                    playDancerAudio(audio, () => finishTalking(dancer, action));
+                } else {
+                    const words = text.split(/\s+/).length;
+                    const seconds = Math.max(3, words * 0.35);
+                    setTimeout(() => finishTalking(dancer, action), seconds * 1000);
+                }
+            })
+            .catch(() => {
+                if (dancer.currentAction !== action) return;
+                action.fadeOut(0.2);
+                playCannedAffirmation(dancer);
+            });
+    });
+}
+
+let duckTarget = 1;
+let duckFactor = 1;
+
+function playDancerAudio(base64Mp3, onEnded) {
+    const audioEl = new Audio(`data:audio/mpeg;base64,${base64Mp3}`);
+    duckTarget = 0.25;
+    const stopDucking = () => { duckTarget = 1; onEnded(); };
+    audioEl.addEventListener('ended', stopDucking);
+    audioEl.addEventListener('error', stopDucking);
+    audioEl.play().catch(stopDucking);
 }
 
 function playCannedAffirmation(dancer) {
@@ -954,9 +1019,10 @@ function animate(currentTime) {
             }
         }
 
-        if (sound && sound.isPlaying && fadeProgress < 1) {
-            fadeProgress = Math.min(1, fadeProgress + dt / FADE_SECONDS);
-            sound.setVolume(audioParams.volume * fadeProgress);
+        if (sound && sound.isPlaying) {
+            if (fadeProgress < 1) fadeProgress = Math.min(1, fadeProgress + dt / FADE_SECONDS);
+            duckFactor += (duckTarget - duckFactor) * (1 - Math.exp(-dt / 0.3));
+            sound.setVolume(audioParams.volume * fadeProgress * duckFactor);
         }
 
         // Music-reactive: kick hits bounce the text, bass stirs the water.
@@ -1179,7 +1245,7 @@ function initGUI() {
 
     const audioFolder = gui.addFolder('Audio');
     audioFolder.add(audioParams, 'volume', 0, 1).name('Volume').onChange(v => {
-        if (sound) sound.setVolume(v * fadeProgress);
+        if (sound) sound.setVolume(v * fadeProgress * duckFactor);
     });
     audioFolder.open();
     isMobile() ? gui.close() : gui.open();
