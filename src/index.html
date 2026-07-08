@@ -193,6 +193,40 @@
             z-index: 100;
         }
 
+        .dancer-choice {
+            position: fixed;
+            display: none;
+            transform: translate(-50%, 12px);
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            z-index: 100;
+        }
+        .dancer-choice-dismiss,
+        .dancer-choice-input {
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(255, 255, 0, 0.35);
+            border-radius: 20px;
+            color: #ff0;
+            font-family: monospace;
+            font-size: 12px;
+            padding: 5px 14px;
+        }
+        .dancer-choice-dismiss {
+            cursor: pointer;
+        }
+        .dancer-choice-dismiss:hover,
+        .dancer-choice-input:focus {
+            border-color: #ff0;
+        }
+        .dancer-choice-input {
+            width: 220px;
+            outline: none;
+        }
+        .dancer-choice-input::placeholder {
+            color: rgba(255, 255, 0, 0.5);
+        }
+
         /* photo mode: strip HUD for a clean capture */
         body.photo-mode .lil-gui,
         body.photo-mode #music-toggle,

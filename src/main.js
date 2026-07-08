@@ -15,6 +15,7 @@ import { FlightControls } from './components/flight.js';
 import { FireworkSystem } from './components/fireworks.js';
 import { BirdFlock } from './components/birds.js';
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import dancerLinesRaw from './data/dancer-lines.txt?raw';
 
 let previousTime = 0;
 const desiredFPS = 60;
@@ -66,7 +67,7 @@ const HOME_SECONDS = 1.5;
 const homeFrom = new THREE.Vector3();
 let cameraFocus = null; // { dancer, savedPos, savedTarget, phase: 'in'|'holding'|'out', elapsed }
 const CAMERA_FOCUS_SECONDS = 1.2;
-const CAMERA_FOCUS_MAX_HOLD_MS = 30000; // safety net only — a 60-token TTS reply can run 15-20s
+const CAMERA_FOCUS_MAX_HOLD_MS = 90000; // idle safety net once the choice UI is up — resets on every new line, so a real back-and-forth chat isn't capped, only an abandoned tab is
 const CAMERA_FOCUS_DISTANCE = 18;
 const cameraFocusFrom = new THREE.Vector3();
 const cameraFocusTo = new THREE.Vector3();
@@ -130,31 +131,13 @@ const danceAnimations = [
     "models/anims/breakdance ending 3.glb",
 ];
 
-const AFFIRMATIONS = [
-    "You are incredible. Thank you so much for visiting.",
-    "Keep it up. You are doing so well.",
-    "The people in your life are fortunate to have you.",
-    "You carry more light than you know.",
-    "Whatever you're working through, you're doing better than you think.",
-    "Someone out there is grateful you exist.",
-    "You've survived every hard day so far. That's no small thing.",
-    "Be gentle with yourself today. You deserve that.",
-    "The world is a little better because you're in it.",
-    "You don't have to have it all figured out to be enough.",
-    "Someone, somewhere, is smiling because they know you.",
-    "Your kindness matters more than you realize.",
-    "You are allowed to rest. You are allowed to be proud of yourself.",
-    "Thank you for showing up, today and every day.",
-    "You are worthy of the love you give so freely to others.",
-    "This moment is a gift, and so are you.",
-    "You've made it this far. Keep going, gently.",
-    "Someone believes in you, even on the days you don't believe in yourself.",
-    "You are exactly where you need to be.",
-    "Take a breath. You are safe, and you are loved.",
-];
+// Sourced from src/data/dancer-lines.txt — edit that file, not this array.
+const AFFIRMATIONS = dancerLinesRaw.split('\n').map(l => l.trim()).filter(Boolean);
 
-const AI_LINE_COOLDOWN_MS = 8000; // just enough to block double-click spam; the server's daily cap is the real cost backstop
-const AI_LINE_TIMEOUT_MS = 6000;
+const TTS_FETCH_TIMEOUT_MS = 6000; // canned opening line: TTS-only round trip
+const CHAT_FETCH_TIMEOUT_MS = 12000; // free-text turn: OpenRouter + TTS
+const CHAT_MESSAGE_MAX_LENGTH = 300;
+const CONVERSATION_HISTORY_MAX_ENTRIES = 8; // user+assistant entries kept per dancer, oldest dropped first
 
 init();
 animate();
@@ -459,6 +442,10 @@ function startCameraFocus(dancer) {
     };
 }
 
+function resetCameraFocusIdle(dancer) {
+    if (cameraFocus && cameraFocus.dancer === dancer) cameraFocus.elapsed = 0;
+}
+
 function updateCameraFocus(dt) {
     if (!cameraFocus) return;
     const headPos = cameraFocus.dancer.headBone.getWorldPosition(new THREE.Vector3());
@@ -713,7 +700,7 @@ function enableDancer() {
                     // GLTFLoader strips ':' from node names, so the source rig's
                     // "mixamorig8:Head" comes through as "mixamorig8Head".
                     headBone: fbx.getObjectByName('mixamorig8Head'), talking: false,
-                    bubbleEl: null,
+                    bubbleEl: null, choiceEl: null, conversationHistory: [],
                     // stable per-dancer voice slot (0/1/2) — set from the DANCER_POSITIONS
                     // loop index, not push order, since these callbacks resolve async
                     voiceIndex: i,
@@ -739,6 +726,8 @@ function disableDancer() {
         d.talking = false;
         d.model.visible = false;
         if (d.glow) d.glow.visible = false;
+        if (d.choiceEl) d.choiceEl.style.display = 'none';
+        d.conversationHistory = [];
     });
 }
 
@@ -765,31 +754,21 @@ function playDancerNextAnimation(dancer) {
     });
 }
 
-function triggerAffirmation(dancer) {
+function startDialogue(dancer) {
     if (dancer.talking || cameraFocus || homing) return;
     dancer.talking = true;
     startCameraFocus(dancer);
-
-    const lastAiLineAt = Number(localStorage.getItem('funky_ai_line_cooldown') || 0);
-    const cooldownClear = Date.now() - lastAiLineAt >= AI_LINE_COOLDOWN_MS;
-
-    if (cooldownClear) {
-        fetchDancerLine(dancer);
-    } else {
-        playCannedAffirmation(dancer);
-    }
+    speakCannedLine(dancer);
 }
 
-function scheduleReadingTimeFinish(dancer, action, text) {
-    const words = text.split(/\s+/).length;
-    const seconds = Math.max(3, words * 0.35);
-    setTimeout(() => finishTalking(dancer, action), seconds * 1000);
-}
-
-function fetchDancerLine(dancer) {
+// Starts (or restarts) the looping talk animation and hands the caller the
+// new action once it's ready. Canned lines call this immediately (text is
+// already known, nothing to wait for); chat replies call this only after
+// the AI response arrives, so the dancer never "talks" silently.
+function beginTalkAnimation(dancer, callback) {
     AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
         if (!clip) {
-            dancer.talking = false;
+            callback(null);
             return;
         }
         if (dancer.currentAction) dancer.currentAction.fadeOut(0.3);
@@ -799,29 +778,44 @@ function fetchDancerLine(dancer) {
         action.fadeIn(0.3);
         action.play();
         dancer.currentAction = action;
+        callback(action);
+    });
+}
+
+function scheduleReadingTimeFinish(dancer, action, text) {
+    const words = text.split(/\s+/).length;
+    const seconds = Math.max(3, words * 0.35);
+    setTimeout(() => onLineFinished(dancer, action), seconds * 1000);
+}
+
+// Opening line: picked from the bundled canned lines, not AI-generated —
+// so there's no network wait before the dancer starts talking. The only
+// round trip left is fetching audio for a line whose text we already have.
+function speakCannedLine(dancer) {
+    const text = AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)];
+    beginTalkAnimation(dancer, (action) => {
+        if (!action) {
+            dancer.talking = false;
+            return;
+        }
+        showAffirmationBubble(dancer, text);
+        // the opening line has to be in history too, or the first chat reply
+        // has no idea what the dancer just said and answers out of context
+        dancer.conversationHistory.push({ role: 'assistant', content: text });
 
         fetch(`${import.meta.env.BASE_URL}api/dancer-line`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ voiceIndex: dancer.voiceIndex }),
-            signal: AbortSignal.timeout(AI_LINE_TIMEOUT_MS),
+            body: JSON.stringify({ voiceIndex: dancer.voiceIndex, text }),
+            signal: AbortSignal.timeout(TTS_FETCH_TIMEOUT_MS),
         })
-            .then((r) => {
-                if (!r.ok) throw new Error(`status ${r.status}`);
-                return r.json();
-            })
-            .then(({ text, audio }) => {
-                if (dancer.currentAction !== action) return; // a fallback already took over
-                localStorage.setItem('funky_ai_line_cooldown', String(Date.now()));
-                showAffirmationBubble(dancer, text);
+            .then((r) => (r.ok ? r.json() : { audio: null }))
+            .then(({ audio }) => {
+                if (dancer.currentAction !== action) return; // superseded
                 if (audio) {
-                    // if audio fails to actually play (autoplay policy, decode error,
-                    // etc.) degrade to the same reading-time estimate the no-audio
-                    // branch uses below — never snap the bubble/camera shut instantly,
-                    // that used to happen on any audio hiccup, not just Safari.
                     playDancerAudio(
                         audio,
-                        () => finishTalking(dancer, action),
+                        () => onLineFinished(dancer, action),
                         () => scheduleReadingTimeFinish(dancer, action, text)
                     );
                 } else {
@@ -830,8 +824,7 @@ function fetchDancerLine(dancer) {
             })
             .catch(() => {
                 if (dancer.currentAction !== action) return;
-                action.fadeOut(0.2);
-                playCannedAffirmation(dancer);
+                scheduleReadingTimeFinish(dancer, action, text);
             });
     });
 }
@@ -849,36 +842,106 @@ function playDancerAudio(base64Mp3, onEnded, onFailure) {
     audioEl.play().catch(handleFailure);
 }
 
-function playCannedAffirmation(dancer) {
-    AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
-        if (!clip) {
-            dancer.talking = false;
-            return;
-        }
-        if (dancer.currentAction) dancer.currentAction.fadeOut(0.3);
-        const action = dancer.mixer.clipAction(clip);
-        action.reset();
-        action.setLoop(THREE.LoopRepeat, 2);
-        action.clampWhenFinished = true;
-        action.fadeIn(0.3);
-        action.play();
-        dancer.currentAction = action;
-        showAffirmationBubble(dancer, AFFIRMATIONS[Math.floor(Math.random() * AFFIRMATIONS.length)]);
-
-        const onFinished = (e) => {
-            if (e.action !== action) return;
-            dancer.mixer.removeEventListener('finished', onFinished);
-            finishTalking(dancer, action);
-        };
-        dancer.mixer.addEventListener('finished', onFinished);
-    });
+// A line finished (audio ended, or the reading-time estimate elapsed) —
+// hand control back to the visitor instead of auto-dismissing.
+function onLineFinished(dancer, action) {
+    if (dancer.currentAction !== action) return; // superseded by a newer line already
+    showDialogueChoice(dancer);
 }
 
-function finishTalking(dancer, action) {
-    if (dancer.currentAction !== action) return; // superseded by a newer trigger already
+function dismissDialogue(dancer) {
+    hideDialogueChoice(dancer);
+    dancer.conversationHistory = [];
     dancer.talking = false;
     if (dancer.bubbleEl) dancer.bubbleEl.style.display = 'none';
     playDancerNextAnimation(dancer);
+}
+
+function sendChatMessage(dancer, rawMessage) {
+    const userMessage = rawMessage.trim().slice(0, CHAT_MESSAGE_MAX_LENGTH);
+    if (!userMessage) return;
+    hideDialogueChoice(dancer);
+    showAffirmationBubble(dancer, '...');
+
+    fetch(`${import.meta.env.BASE_URL}api/dancer-line`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            voiceIndex: dancer.voiceIndex,
+            userMessage,
+            conversationHistory: dancer.conversationHistory,
+        }),
+        signal: AbortSignal.timeout(CHAT_FETCH_TIMEOUT_MS),
+    })
+        .then((r) => {
+            if (!r.ok) throw new Error(`status ${r.status}`);
+            return r.json();
+        })
+        .then(({ text, audio }) => {
+            if (!dancer.talking) return; // dialogue was dismissed while this was in flight
+            dancer.conversationHistory.push({ role: 'user', content: userMessage });
+            dancer.conversationHistory.push({ role: 'assistant', content: text });
+            while (dancer.conversationHistory.length > CONVERSATION_HISTORY_MAX_ENTRIES) {
+                dancer.conversationHistory.shift();
+            }
+            beginTalkAnimation(dancer, (action) => {
+                if (!action) {
+                    showDialogueChoice(dancer);
+                    return;
+                }
+                showAffirmationBubble(dancer, text);
+                if (audio) {
+                    playDancerAudio(
+                        audio,
+                        () => onLineFinished(dancer, action),
+                        () => scheduleReadingTimeFinish(dancer, action, text)
+                    );
+                } else {
+                    scheduleReadingTimeFinish(dancer, action, text);
+                }
+            });
+        })
+        .catch(() => {
+            if (!dancer.talking) return;
+            beginTalkAnimation(dancer, (action) => {
+                if (!action) {
+                    showDialogueChoice(dancer);
+                    return;
+                }
+                const text = "Hmm, lost the beat for a second — try me again?";
+                showAffirmationBubble(dancer, text);
+                scheduleReadingTimeFinish(dancer, action, text);
+            });
+        });
+}
+
+function showDialogueChoice(dancer) {
+    if (!dancer.choiceEl) {
+        const el = document.createElement('div');
+        el.className = 'dancer-choice';
+        el.innerHTML = `
+            <button type="button" class="dancer-choice-dismiss">Thanks!</button>
+            <form class="dancer-choice-form">
+                <input type="text" class="dancer-choice-input" placeholder="Say something back..." maxlength="${CHAT_MESSAGE_MAX_LENGTH}" autocomplete="off">
+            </form>
+        `;
+        document.body.appendChild(el);
+        dancer.choiceEl = el;
+        el.querySelector('.dancer-choice-dismiss').addEventListener('click', () => dismissDialogue(dancer));
+        el.querySelector('.dancer-choice-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const input = el.querySelector('.dancer-choice-input');
+            const value = input.value;
+            input.value = '';
+            sendChatMessage(dancer, value);
+        });
+    }
+    dancer.choiceEl.style.display = 'flex';
+    resetCameraFocusIdle(dancer);
+}
+
+function hideDialogueChoice(dancer) {
+    if (dancer.choiceEl) dancer.choiceEl.style.display = 'none';
 }
 
 function showAffirmationBubble(dancer, text) {
@@ -890,6 +953,7 @@ function showAffirmationBubble(dancer, text) {
     }
     dancer.bubbleEl.textContent = text;
     dancer.bubbleEl.style.display = 'block';
+    resetCameraFocusIdle(dancer);
 }
 
 function raycastDancer(clientX, clientY) {
@@ -920,7 +984,7 @@ function raycastDancer(clientX, clientY) {
 function onDancerClick(e) {
     if (flight.enabled || dancers.length === 0 || cameraFocus || homing) return;
     const dancer = raycastDancer(e.clientX, e.clientY);
-    if (dancer) triggerAffirmation(dancer);
+    if (dancer) startDialogue(dancer);
 }
 
 let hoveredDancer = null;
@@ -1151,12 +1215,16 @@ function animate(currentTime) {
         dancers.forEach(d => {
             d.mixer.update(dt);
 
-            if (d.bubbleEl && d.bubbleEl.style.display !== 'none' && d.headBone) {
+            const bubbleShown = d.bubbleEl && d.bubbleEl.style.display !== 'none';
+            const choiceShown = d.choiceEl && d.choiceEl.style.display !== 'none';
+            if (d.headBone && (bubbleShown || choiceShown)) {
                 const headPos = d.headBone.getWorldPosition(new THREE.Vector3());
                 headPos.y += 3; // clear the top of the head
                 headPos.project(camera);
-                d.bubbleEl.style.left = `${(headPos.x * 0.5 + 0.5) * window.innerWidth}px`;
-                d.bubbleEl.style.top = `${(-headPos.y * 0.5 + 0.5) * window.innerHeight}px`;
+                const left = `${(headPos.x * 0.5 + 0.5) * window.innerWidth}px`;
+                const top = `${(-headPos.y * 0.5 + 0.5) * window.innerHeight}px`;
+                if (bubbleShown) { d.bubbleEl.style.left = left; d.bubbleEl.style.top = top; }
+                if (choiceShown) { d.choiceEl.style.left = left; d.choiceEl.style.top = top; }
             }
 
             if (d.loading || d.talking || !d.currentAction) return;
@@ -1362,6 +1430,7 @@ function initGUI() {
 
 function transformKey(event) {
     if (flight && flight.enabled) return; // W/E/R belong to movement while flying
+    if (event.target.tagName === 'INPUT') return; // dancer chat box
     if (currentCube && ['w', 'e', 'r'].includes(event.key)) {
         attachTransformControls(currentCube, event.key);
     }
