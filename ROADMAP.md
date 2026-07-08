@@ -85,7 +85,7 @@ from the horizon toward the sky, explodes into ~300 points.
 - Acceptance: double-click spawns firework, 60fps holds with 3 simultaneous,
   particles fade fully (no immortal points), works with clouds on.
 
-### 1.3 Seagulls (boids)  — model: Sonnet — DONE (console-clean; same unverifiable-headless shader caveat as 1.2, please glance live)
+### 1.3 Seagulls (boids)  — model: Sonnet — DONE. Live-checked: were too thin/invisible (flat horizontal wings viewed edge-on from below) — fixed with a gull-style dihedral (raised wingtips) + slightly bigger size. Re-check appreciated.
 Makes the world feel alive. ~24 birds circling the text monument.
 - New `src/components/birds.js`. Each bird = 2 triangles (flapping wings via
   vertex shader `sin(uTime * flapSpeed + phase)` on wing verts) in ONE
@@ -109,7 +109,7 @@ Makes the world feel alive. ~24 birds circling the text monument.
 
 ## Phase 2 — atmosphere (Sonnet for 2.1/2.2, Opus for 2.3)
 
-### 2.1 Lens flare per HDRI  — model: Sonnet — DONE (sun directions computed from brightest-pixel HDR analysis, not eyeballed; GUI "Sun (flare tuning)" folder live-tunes + writes back to CLOUD_PRESETS; console-clean across all 9 presets; please glance live and nudge the sliders if a flare looks off)
+### 2.1 Lens flare per HDRI  — model: Sonnet — DONE, confirmed live: looks right. Sun directions computed from brightest-pixel HDR analysis (not eyeballed); GUI "Sun (flare tuning)" folder live-tunes + writes back to CLOUD_PRESETS if it ever needs a nudge.
 - three addon `Lensflare` + `LensflareElement`, textures generated on canvas
   (radial gradients — same trick as clouds.js `makePuffTexture`).
 - Add `sun: [x, y, z] | null` to each `CLOUD_PRESETS` entry (estimate sun
@@ -119,7 +119,7 @@ Makes the world feel alive. ~24 birds circling the text monument.
 - Acceptance: Day/Dusk/Pink Sunset show a flare that occludes behind the
   text mesh; no flare on sunless presets; HDRI switch swaps flare correctly.
 
-### 2.2 Rain + lightning for Stormy  — model: Sonnet (rain) / Opus if shader trouble — DONE (console-clean incl. full lightning/thunder cycle; please glance live for visuals)
+### 2.2 Rain + lightning for Stormy  — model: Sonnet (rain) / Opus if shader trouble — DONE, confirmed live: looks right
 - Rain: one THREE.Points field (~2000 streaks, cylinder around camera,
   y wraps mod height; vertex shader stretches points into streaks via
   gl_PointSize + a smear in the fragment). Follows camera like clouds tile.

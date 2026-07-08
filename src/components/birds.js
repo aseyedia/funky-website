@@ -7,7 +7,7 @@ import * as THREE from 'three';
 // per-instance phase so the flock doesn't flap in lockstep.
 
 const BIRD_COUNT = 24;
-const BIRD_SIZE = 5; // half-wingspan-ish, in world units
+const BIRD_SIZE = 7; // half-wingspan-ish, in world units
 
 const TORUS_R_MIN = 150;
 const TORUS_R_MAX = 400;
@@ -47,11 +47,14 @@ void main() {
 
 function createBirdGeometry() {
     const s = BIRD_SIZE;
-    // flat seagull silhouette: two triangles sharing a body spine, wingtips
-    // at the outer verts (aSide = +-1), body verts don't flap (aSide = 0)
+    // seagull silhouette: two triangles sharing a body spine, wingtips
+    // at the outer verts (aSide = +-1), body verts don't flap (aSide = 0).
+    // Wingtips sit above the body plane (gull-style dihedral) so the flock
+    // still reads as bird shapes when seen from below at a shallow angle —
+    // a perfectly flat horizontal wing goes edge-on and nearly vanishes.
     const positions = new Float32Array([
-        0, 0, 0.6 * s, -1 * s, 0, -0.5 * s, 0, 0, -0.1 * s,
-        0, 0, 0.6 * s, 0, 0, -0.1 * s, 1 * s, 0, -0.5 * s,
+        0, 0, 0.6 * s, -1 * s, 0.35 * s, -0.5 * s, 0, 0, -0.1 * s,
+        0, 0, 0.6 * s, 0, 0, -0.1 * s, 1 * s, 0.35 * s, -0.5 * s,
     ]);
     const side = new Float32Array([0, -1, 0, 0, 0, 1]);
     const geometry = new THREE.BufferGeometry();
