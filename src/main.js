@@ -10,6 +10,7 @@ import AssetLoader from './components/assetLoader.js';
 import { CloudField, CLOUD_PRESETS } from './components/clouds.js';
 import { RainSystem } from './components/rain.js';
 import { Lensflare, LensflareElement } from 'three/examples/jsm/objects/Lensflare.js';
+import { SkyCrossfade } from './components/skyCrossfade.js';
 import { FlightControls } from './components/flight.js';
 import { FireworkSystem } from './components/fireworks.js';
 import { BirdFlock } from './components/birds.js';
@@ -49,6 +50,8 @@ let sunFlareAnchor = null;
 const SUN_DISTANCE = 5000;
 const sunTuneParams = { x: 0, y: 0, z: 0 };
 let currentSunPresetKey = '001';
+let skyCrossfade = null;
+let hdriRequestId = 0;
 const DIR_LIGHT_BASE_INTENSITY = 2.5;
 const weatherParams = { rain: false };
 let lightningScheduled = false;
@@ -228,6 +231,8 @@ function init() {
 
     setupSunFlare();
     applySunForPreset('001');
+
+    skyCrossfade = new SkyCrossfade(scene);
 
     flight = new FlightControls(camera, renderer.domElement, {
         onEnter: () => {
@@ -870,6 +875,7 @@ function animate(currentTime) {
         fireworks.update(dt);
         birds.update(dt, currentTime / 1000);
         rain.update(currentTime / 1000, camera);
+        skyCrossfade.update(dt, camera);
         weatherParams.rain = rain.enabled;
 
         if (rain.enabled) {
@@ -930,20 +936,40 @@ function animate(currentTime) {
 function loadHDRI(path, callback) {
     const name = path.split('/').pop();
     console.log("Loading HDRI:", path);
+    const requestId = ++hdriRequestId;
     AssetLoader.loadHDRI(name, path, (texture) => {
         if (!texture) {
             console.error('HDRI texture not loaded:', path);
+            return;
+        }
+        if (requestId !== hdriRequestId) {
+            texture.dispose(); // superseded by a newer pick before this one finished loading
             return;
         }
 
         // Full-res equirect as the sky (much sharper than the old 256px PMREM
         // cubemap); the renderer PMREMs scene.environment internally and caches it.
         texture.mapping = THREE.EquirectangularReflectionMapping;
+
+        if (!currentSkyTexture) {
+            // first load — nothing to blend from
+            scene.background = texture;
+            scene.environment = texture;
+            currentSkyTexture = texture;
+            if (callback) callback();
+            return;
+        }
+
+        if (skyCrossfade.blending) skyCrossfade.finish(); // snap any in-flight blend before starting a new one
+
         const oldSky = currentSkyTexture;
-        scene.background = texture;
-        scene.environment = texture;
-        currentSkyTexture = texture;
-        if (oldSky && oldSky !== texture) oldSky.dispose(); // frees GPU memory (leaked before)
+        scene.background = null;
+        scene.environment = texture; // reflection pop is barely noticeable — not worth blending
+        skyCrossfade.start(oldSky, texture, 1.5, () => {
+            scene.background = texture;
+            oldSky.dispose();
+            currentSkyTexture = texture;
+        });
 
         if (callback) callback();
     });

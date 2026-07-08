@@ -131,7 +131,7 @@ Makes the world feel alive. ~24 birds circling the text monument.
 - Acceptance: switching to Stormy starts rain within a second; leaving stops
   it; flash never strobes more than 2 frames; fps holds.
 
-### 2.3 HDRI crossfade  — model: Opus
+### 2.3 HDRI crossfade  — model: Opus — DONE. Unlike the other shader tasks this one actually rendered visually in the sandbox (standard sphere + texture2D sampling, not point-primitive varyings) — settled Dusk transition and post-spam Day state both show correct HDRI tint, no pop. Survived an 11-switch 150ms-interval spam test with zero console errors (no double-dispose). Reused three's own `equirectUv` chunk specifically to avoid a sampling-convention mismatch with the hard-swap path. Still worth a live glance given it's the fiddliest one.
 Currently sky switches are a hard pop. Blend old → new over ~1.5s.
 - Cannot lerp `scene.background` directly. Approach: custom fullscreen
   background via a large inverted sphere (or THREE.Scene.backgroundBlurriness
