@@ -193,8 +193,6 @@
 
         /* photo mode: strip HUD for a clean capture */
         body.photo-mode .lil-gui,
-        body.photo-mode #info-container,
-        body.photo-mode #tips-container,
         body.photo-mode #music-toggle,
         body.photo-mode #stats-panel {
             display: none !important;
@@ -203,24 +201,6 @@
 </head>
 <body>
     <div id="container"></div>
-    <div id="info-container">
-        <div id="info-header">About</div>
-        <div id="info-content">
-            Thank you so much for coming to my website!
-            <br>It really means a lot to me 😀<br/>
-            Have a look around, and feel free to get in touch!
-            <br><div style="text-align: left;">Arta Seyedian</div>
-            <a href="https://www.linkedin.com/in/artaseyedian" target="_blank" rel="noopener">LinkedIn</a> |
-            <span class="copy-email" id="copy-email">Email</span> |
-            <a href="https://github.com/aseyedia" target="_blank" rel="noopener">GitHub</a>
-        </div>
-    </div>
-    <div id="tips-container">
-        <div id="tips-header">Info</div>
-        <div id="tips-content">
-            - Hold 'W', 'E' or 'R' with the cube enabled to move, scale or rotate.<br/>
-        </div>
-    </div>    
     <div id="loadingScreen">
         <div id="loadingText">Loading...</div>
         <div id="loadingBarContainer">
@@ -237,48 +217,6 @@
     </button>
 
     <script>
-        function updateTipsPosition() {
-            const infoContainer = document.getElementById('info-container');
-            const tipsContainer = document.getElementById('tips-container');
-            const infoContainerHeight = infoContainer.offsetHeight;
-            const infoContainerWidth = infoContainer.offsetWidth;
-            tipsContainer.style.top = `${infoContainerHeight + (20+48)}px`; // 20px for spacing
-        }
-
-        document.getElementById('info-header').addEventListener('click', function() {
-            var infoContent = document.getElementById('info-content');
-            if (infoContent.style.display === 'none' || infoContent.style.display === '') {
-                infoContent.style.display = 'block';
-            } else {
-                infoContent.style.display = 'none';
-            }
-            updateTipsPosition();
-        });
-
-        document.getElementById('tips-header').addEventListener('click', function() {
-            var tipsContent = document.getElementById('tips-content');
-            if (tipsContent.style.display === 'none' || tipsContent.style.display === '') {
-                tipsContent.style.display = 'block';
-            } else {
-                tipsContent.style.display = 'none';
-            }
-        });
-
-        document.getElementById('copy-email').addEventListener('click', function() {
-            const email = 'arta.seyedian@gmail.com';
-            navigator.clipboard.writeText(email).then(function() {
-                const emailLink = document.getElementById('copy-email');
-                emailLink.innerText = '✓ Email Address Copied';
-                emailLink.style.color = 'lime';
-                setTimeout(function() {
-                    emailLink.innerText = 'Email';
-                    emailLink.style.color = '#ff0';
-                }, 3000); // Reset the text after 3 seconds
-            }, function(err) {
-                console.error('Could not copy text: ', err);
-            });
-        });
-
         document.addEventListener('DOMContentLoaded', (event) => {
             const loadingScreen = document.getElementById('loadingScreen');
             const loadingBar = document.getElementById('loadingBar');
@@ -302,8 +240,6 @@
             }
 
             loadAssets(() => {});
-
-            updateTipsPosition();
         });
     </script>
 

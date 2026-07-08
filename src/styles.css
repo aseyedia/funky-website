@@ -13,70 +13,13 @@ a {
     text-decoration: none;
 }
 
-a:hover, .copy-email:hover {
+a:hover {
     text-decoration: underline;
 }
 
 button {
     cursor: pointer;
     text-transform: uppercase;
-}
-
-#info-container {
-    position: absolute;
-    top: 58px;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 10px;
-    overflow: hidden;
-    z-index: 1;
-    pointer-events: auto;
-}
-
-#info-header {
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.7);
-    cursor: pointer;
-    color: #ff0;
-    text-align: center;
-}
-
-#info-content {
-    padding: 10px;
-    display: none; /* Hide by default */
-    text-align: center;
-}
-
-#tips-container {
-    position: absolute;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.5);
-    border-radius: 10px;
-    overflow: hidden;
-    z-index: 1;
-    pointer-events: auto;
-}
-
-#tips-header {
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.7);
-    cursor: pointer;
-    color: #ff0;
-    text-align: center;
-}
-
-#tips-content {
-    padding: 10px;
-    display: none; /* Hide by default */
-    text-align: center;
-    white-space: normal; /* Ensure text wrapping */
-
-}
-
-.copy-email {
-    color: #ff0;
-    cursor: pointer;
-    text-decoration: none;
 }
 
 .lil-gui {
