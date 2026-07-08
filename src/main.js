@@ -710,7 +710,7 @@ function playDancerNextAnimation(dancer) {
 }
 
 function triggerAffirmation(dancer) {
-    if (dancer.talking || cameraFocus) return;
+    if (dancer.talking || cameraFocus || homing) return;
     dancer.talking = true;
     startCameraFocus(dancer);
     AssetLoader.loadNextAnimation('models/anims/talking.glb', (clip) => {
@@ -771,7 +771,7 @@ function raycastDancer(clientX, clientY) {
 }
 
 function onDancerClick(e) {
-    if (flight.enabled || dancers.length === 0 || cameraFocus) return;
+    if (flight.enabled || dancers.length === 0 || cameraFocus || homing) return;
     const dancer = raycastDancer(e.clientX, e.clientY);
     if (dancer) triggerAffirmation(dancer);
 }
