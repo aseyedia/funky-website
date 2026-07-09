@@ -90,6 +90,16 @@ let currentCube = null;
 // Dancer state
 const dancers = [];
 let dancersLoading = false;
+
+// All three dancers share one clock and one clip so they stay 100% in
+// sync by default — each dancer used to run its own independent cycle
+// (staggered start index), which drifted out of phase over time.
+let sharedAnimIndex = 0;
+let sharedClip = null;
+let sharedClipElapsed = 0;
+let sharedClipDuration = Infinity;
+let sharedAnimLoading = false;
+
 const DANCER_POSITIONS = [
     { x: -25, y: 0, z: 15 },
     { x:   0, y: 0, z: 20 },
@@ -673,8 +683,8 @@ function enableDancer() {
         dancers.forEach(d => {
             d.model.visible = true;
             if (d.glow) d.glow.visible = true;
-            playDancerNextAnimation(d);
         });
+        playSharedNextAnimation(); // one fresh synced start for all three, not per-dancer
         return;
     }
     if (dancersLoading) return;
@@ -732,10 +742,8 @@ function enableDancer() {
                 scene.add(glow);
 
                 const dancerMixer = new THREE.AnimationMixer(fbx);
-                const animOffset = Math.floor(i * danceAnimations.length / DANCER_POSITIONS.length);
                 const dancer = {
-                    model: fbx, mesh: dancerMesh, mixer: dancerMixer, animIndex: animOffset, currentAction: null,
-                    loading: false, clipElapsed: 0, clipDuration: Infinity,
+                    model: fbx, mesh: dancerMesh, mixer: dancerMixer, currentAction: null,
                     // GLTFLoader strips ':' from node names, so the source rig's
                     // "mixamorig8:Head" comes through as "mixamorig8Head".
                     headBone: fbx.getObjectByName('mixamorig8Head'), talking: false,
@@ -746,11 +754,11 @@ function enableDancer() {
                     hitZone, glow,
                 };
                 dancers.push(dancer);
-                playDancerNextAnimation(dancer);
             }
             if (remaining === 0) {
                 dancersLoading = false;
                 hideLazyStatus('dancers');
+                playSharedNextAnimation(); // all three start their first move on the same frame
             }
         });
     });
@@ -770,27 +778,53 @@ function disableDancer() {
     });
 }
 
-function playDancerNextAnimation(dancer) {
-    if (dancer.loading) return;
-    dancer.loading = true;
-    if (dancer.animIndex >= danceAnimations.length) dancer.animIndex = 0;
-    const path = danceAnimations[dancer.animIndex++];
+// Drives all non-talking dancers from one clip so they stay in lockstep —
+// loading the clip once and applying it to every mixer in the same frame,
+// rather than each dancer loading and switching independently.
+function playSharedNextAnimation() {
+    if (sharedAnimLoading) return;
+    sharedAnimLoading = true;
+    if (sharedAnimIndex >= danceAnimations.length) sharedAnimIndex = 0;
+    const path = danceAnimations[sharedAnimIndex++];
     AssetLoader.loadNextAnimation(path, (clip) => {
-        dancer.loading = false;
+        sharedAnimLoading = false;
         if (!clip) {
-            playDancerNextAnimation(dancer);
+            playSharedNextAnimation();
             return;
         }
-        if (dancer.currentAction) dancer.currentAction.fadeOut(0.5);
-        const action = dancer.mixer.clipAction(clip);
-        action.reset();
-        action.setLoop(THREE.LoopRepeat, Infinity);
-        action.fadeIn(0.5);
-        action.play();
-        dancer.currentAction = action;
-        dancer.clipDuration = clip.duration;
-        dancer.clipElapsed = 0;
+        sharedClip = clip;
+        sharedClipDuration = clip.duration;
+        sharedClipElapsed = 0;
+        dancers.forEach((d) => {
+            if (d.talking) return; // rejoins via rejoinSharedDance() once its dialogue ends
+            if (d.currentAction) d.currentAction.fadeOut(0.5);
+            const action = d.mixer.clipAction(clip);
+            action.reset();
+            action.setLoop(THREE.LoopRepeat, Infinity);
+            action.fadeIn(0.5);
+            action.play();
+            d.currentAction = action;
+        });
     });
+}
+
+// A dancer coming out of a talk animation rejoins the shared clip already
+// in progress (same clip, same elapsed time) instead of starting its own
+// cycle — that per-dancer restart was exactly what caused the "odd one
+// out" drift.
+function rejoinSharedDance(dancer) {
+    if (!sharedClip) {
+        playSharedNextAnimation();
+        return;
+    }
+    if (dancer.currentAction) dancer.currentAction.fadeOut(0.3);
+    const action = dancer.mixer.clipAction(sharedClip);
+    action.reset();
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.time = sharedClipElapsed % sharedClip.duration;
+    action.fadeIn(0.3);
+    action.play();
+    dancer.currentAction = action;
 }
 
 function startDialogue(dancer) {
@@ -893,7 +927,7 @@ function dismissDialogue(dancer) {
     dancer.conversationHistory = [];
     dancer.talking = false;
     if (dancer.bubbleEl) dancer.bubbleEl.style.display = 'none';
-    playDancerNextAnimation(dancer);
+    rejoinSharedDance(dancer);
 }
 
 function sendChatMessage(dancer, rawMessage) {
@@ -1351,13 +1385,17 @@ function animate(currentTime) {
                 if (choiceShown) { d.choiceEl.style.left = left; d.choiceEl.style.top = top; }
             }
 
-            if (d.loading || d.talking || !d.currentAction) return;
-            d.clipElapsed += dt;
-            const ratio = d.clipElapsed / d.clipDuration;
-            if ((ratio >= 0.7 && currentPunch > 0.25) || ratio >= 1.3) {
-                playDancerNextAnimation(d);
-            }
         });
+
+        // one shared clock for the whole trio, not per-dancer — see
+        // playSharedNextAnimation()
+        if (dancers.length > 0 && !sharedAnimLoading) {
+            sharedClipElapsed += dt;
+            const ratio = sharedClipElapsed / sharedClipDuration;
+            if ((ratio >= 0.7 && currentPunch > 0.25) || ratio >= 1.3) {
+                playSharedNextAnimation();
+            }
+        }
 
         renderer.render(scene, camera);
 
